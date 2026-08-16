@@ -101,8 +101,8 @@ with st.sidebar:
                     if not has_chromium:
                         status.write("Chromium introuvable. Téléchargement du navigateur (environ 30-60s)...")
                         import sys
-                        # Install chromium browser binary
-                        res = subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], capture_output=True, text=True)
+                        # Install chromium browser binary and its system dependencies
+                        res = subprocess.run([sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"], capture_output=True, text=True)
                         if res.returncode != 0:
                             st.error(f"Playwright installation failed: {res.stderr}\n{res.stdout}")
                             
