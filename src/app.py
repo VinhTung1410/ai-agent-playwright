@@ -98,7 +98,8 @@ with st.sidebar:
                     status.write("Installation des dépendances du navigateur sur le Cloud...")
                     flag_path = "/tmp/playwright_installed"
                     if not os.path.exists(flag_path):
-                        subprocess.run(["playwright", "install", "chromium"])
+                        import sys
+                        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"])
                         with open(flag_path, "w") as f:
                             f.write("done")
                             
