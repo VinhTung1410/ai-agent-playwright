@@ -3,19 +3,6 @@ import subprocess
 import pandas as pd
 import streamlit as st
 
-# Auto-install Playwright browser dependencies on Streamlit Cloud
-if os.environ.get("STREAMLIT_SERVER_PORT") is not None:
-    # Run installation script for Playwright browsers
-    try:
-        # Create a flag file to prevent installing on every rerun
-        flag_path = "/tmp/playwright_installed"
-        if not os.path.exists(flag_path):
-            subprocess.run(["playwright", "install", "chromium"])
-            with open(flag_path, "w") as f:
-                f.write("done")
-    except Exception as e:
-        st.warning(f"Note: Playwright browser automatic setup skipped/failed: {e}")
-
 from scraper import scrape_linkedin, process_and_export
 
 # Page configuration
@@ -106,7 +93,16 @@ with st.sidebar:
     if st.button("Lancer la collecte", type="primary"):
         with st.status("Collecte des offres en cours...", expanded=True) as status:
             try:
-                status.write("Lancement du navigateur Edge...")
+                # Auto-install Playwright browser dependencies on Streamlit Cloud
+                if os.environ.get("STREAMLIT_SERVER_PORT") is not None:
+                    status.write("Installation des dépendances du navigateur sur le Cloud...")
+                    flag_path = "/tmp/playwright_installed"
+                    if not os.path.exists(flag_path):
+                        subprocess.run(["playwright", "install", "chromium"])
+                        with open(flag_path, "w") as f:
+                            f.write("done")
+                            
+                status.write("Lancement du navigateur...")
                 jobs_data = scrape_linkedin(keywords_input, location_input)
                 
                 status.write(f"Analyse des compétences et export Excel ({len(jobs_data)} offres trouvées)...")
