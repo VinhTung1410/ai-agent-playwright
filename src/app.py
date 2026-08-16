@@ -160,7 +160,7 @@ if df_jobs is not None:
             "Contact Recruteur": st.column_config.TextColumn("Contact Recruteur"),
             "Notes & Remarques": st.column_config.TextColumn("Notes & Remarques")
         },
-        use_container_width=True,
+        width="stretch",
         hide_index=True
     )
     
@@ -198,7 +198,7 @@ if df_jobs is not None:
         if selected_job:
             screenshot_path = job_options[selected_job]
             if pd.notna(screenshot_path) and os.path.exists(screenshot_path):
-                st.image(screenshot_path, caption=selected_job, use_container_width=True)
+                st.image(screenshot_path, caption=selected_job, width="stretch")
             else:
                 st.warning("Aucune capture d'écran disponible ou fichier manquant.")
 else:
