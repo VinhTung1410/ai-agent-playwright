@@ -106,14 +106,14 @@ with st.sidebar:
                         if res.returncode != 0:
                             st.error(f"Playwright installation failed: {res.stderr}\n{res.stdout}")
                             
-                status.write("Lancement du navigateur...")
-                jobs_data = scrape_linkedin(keywords_input, location_input)
-                
-                status.write(f"Analyse des compétences et export Excel ({len(jobs_data)} offres trouvées)...")
-                process_and_export(jobs_data)
-                
-                status.update(label="Collecte terminée avec succès !", state="complete")
-                st.rerun()
+                    status.write("Lancement du navigateur...")
+                    jobs_data = scrape_linkedin(keywords_input, location_input)
+                    
+                    status.write(f"Analyse des compétences et export Excel ({len(jobs_data)} offres trouvées)...")
+                    process_and_export(jobs_data)
+                    
+                    status.update(label="Collecte terminée avec succès !", state="complete")
+                    st.rerun()
             except Exception as e:
                 status.update(label=f"Erreur lors de la collecte : {e}", state="error")
                 st.error(e)
