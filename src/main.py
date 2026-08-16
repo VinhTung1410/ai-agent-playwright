@@ -1,12 +1,9 @@
 import logging
 import os
-from datetime import datetime
-
 import config
-from browser import PlaywrightBrowser
+from scraper import scrape_linkedin, process_and_export
 
-print("=== BẮT ĐẦU CHẠY SCRIPT ===")
-
+print("=== STARTING SCRIPT ===")
 
 def configure_logging():
     os.makedirs(config.LOG_PATH, exist_ok=True)
@@ -17,40 +14,22 @@ def configure_logging():
         encoding="utf-8",
     )
 
-
 def main():
     configure_logging()
     logger = logging.getLogger(__name__)
-    logger.info("Bắt đầu chạy script")
-    print("1. Dang khoi tao PlaywrightBrowser...")
-    app = PlaywrightBrowser()
-
+    logger.info("Starting scraper run")
+    
     try:
-        print("2. Dang mo trinh duyet Edge...")
-        app.open_browser()
-
-        print("3. Dang truy cap trang web...")
-        app.open_page()
-        title = app.get_title()
-        print(f"-> Title trang: {title}")
-
-        print("4. Dang chup hinh...")
-        os.makedirs(config.SCREENSHOT_PATH, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        screenshot_path = os.path.join(
-            config.SCREENSHOT_PATH, f"facebook_screenshot_{timestamp}.png"
-        )
-        app.take_screenshot(screenshot_path)
-
+        print("1. Running LinkedIn Job Scraper...")
+        jobs_data = scrape_linkedin()
+        
+        print(f"2. Scraped {len(jobs_data)} jobs. Analyzing and exporting to Excel...")
+        process_and_export(jobs_data)
+        
+        print("=== SCRIPT RUN COMPLETED ===")
     except Exception as e:
-        logger.exception("Script gặp lỗi")
-        print(f"XẢY RA LỖI: {e}")
-
-    finally:
-        print("5. Dang dong trinh duyet...")
-        app.close()
-        logger.info("Kết thúc script")
-
+        logger.exception("Script failed")
+        print(f"ERROR: {e}")
 
 if __name__ == "__main__":
     main()
