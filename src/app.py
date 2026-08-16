@@ -75,7 +75,7 @@ def save_data(df_jobs):
 
 # App Title
 st.markdown('<div class="main-title">💼 LinkedIn Job Scraper & Application Tracker</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">Recherchez des opportunités d\'alternance, analysez les compétences clés requises et gérez vos candidatures en temps réel.</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">Recherchez des opportunités d\'alternance, analysez les compétences clés requises et gérez vos candidatures en temps réel. (v1.0.1)</div>', unsafe_allow_html=True)
 
 # Load existing data
 df_jobs, df_ranking = load_data()
