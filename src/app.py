@@ -99,9 +99,13 @@ with st.sidebar:
                     flag_path = "/tmp/playwright_installed"
                     if not os.path.exists(flag_path):
                         import sys
-                        subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"])
-                        with open(flag_path, "w") as f:
-                            f.write("done")
+                        # Run full playwright install to fetch all correct binaries
+                        res = subprocess.run([sys.executable, "-m", "playwright", "install"], capture_output=True, text=True)
+                        if res.returncode == 0:
+                            with open(flag_path, "w") as f:
+                                f.write("done")
+                        else:
+                            st.error(f"Playwright installation failed: {res.stderr}\n{res.stdout}")
                             
                 status.write("Lancement du navigateur...")
                 jobs_data = scrape_linkedin(keywords_input, location_input)
@@ -112,6 +116,13 @@ with st.sidebar:
                 status.update(label="Collecte terminée avec succès !", state="complete")
                 st.rerun()
             except Exception as e:
+                # Remove flag file on failure so next click can retry installation
+                flag_path = "/tmp/playwright_installed"
+                if os.path.exists(flag_path):
+                    try:
+                        os.remove(flag_path)
+                    except:
+                        pass
                 status.update(label=f"Erreur lors de la collecte : {e}", state="error")
                 st.error(e)
 
