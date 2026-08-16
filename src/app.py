@@ -93,18 +93,17 @@ with st.sidebar:
     if st.button("Lancer la collecte", type="primary"):
         with st.status("Collecte des offres en cours...", expanded=True) as status:
             try:
-                # Auto-install Playwright browser dependencies on Streamlit Cloud
-                if os.environ.get("STREAMLIT_SERVER_PORT") is not None:
-                    status.write("Installation des dépendances du navigateur sur le Cloud...")
-                    flag_path = "/tmp/playwright_installed"
-                    if not os.path.exists(flag_path):
+                    import glob
+                    cache_dir = os.path.expanduser("~/.cache/ms-playwright")
+                    # Check if any chromium folder exists physically in the cache directory
+                    has_chromium = len(glob.glob(os.path.join(cache_dir, "chromium_headless_shell-*"))) > 0 or len(glob.glob(os.path.join(cache_dir, "chromium-*"))) > 0
+                    
+                    if not has_chromium:
+                        status.write("Chromium introuvable. Téléchargement du navigateur (environ 30-60s)...")
                         import sys
-                        # Run full playwright install to fetch all correct binaries
-                        res = subprocess.run([sys.executable, "-m", "playwright", "install"], capture_output=True, text=True)
-                        if res.returncode == 0:
-                            with open(flag_path, "w") as f:
-                                f.write("done")
-                        else:
+                        # Install chromium browser binary
+                        res = subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], capture_output=True, text=True)
+                        if res.returncode != 0:
                             st.error(f"Playwright installation failed: {res.stderr}\n{res.stdout}")
                             
                 status.write("Lancement du navigateur...")
@@ -116,13 +115,6 @@ with st.sidebar:
                 status.update(label="Collecte terminée avec succès !", state="complete")
                 st.rerun()
             except Exception as e:
-                # Remove flag file on failure so next click can retry installation
-                flag_path = "/tmp/playwright_installed"
-                if os.path.exists(flag_path):
-                    try:
-                        os.remove(flag_path)
-                    except:
-                        pass
                 status.update(label=f"Erreur lors de la collecte : {e}", state="error")
                 st.error(e)
 
