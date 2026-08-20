@@ -88,7 +88,7 @@ with st.sidebar:
     
     st.markdown("---")
     st.subheader("🚀 Lancer une nouvelle recherche")
-    st.write("Le scraper va lancer Microsoft Edge localement, récupérer jusqu'à 30 offres récentes publiées dans les dernières 24h, et extraire les compétences.")
+    st.write("Le scraper va lancer le navigateur Chromium, récupérer jusqu'à 30 offres récentes publiées dans les dernières 24h, et extraire les compétences.")
     
     if st.button("Lancer la collecte", type="primary"):
         with st.status("Collecte des offres en cours...", expanded=True) as status:

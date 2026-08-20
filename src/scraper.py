@@ -82,7 +82,7 @@ def scrape_linkedin(keywords="alternance business analyst", location="France"):
     os.makedirs("output/screenshots", exist_ok=True)
 
     with sync_playwright() as p:
-        # Detect if running in cloud, container or Linux environment
+        # Launch standard Chromium (headless on cloud/Linux, headful on local)
         import sys
         is_cloud = (
             os.environ.get("STREAMLIT_SERVER_PORT") is not None
@@ -91,16 +91,9 @@ def scrape_linkedin(keywords="alternance business analyst", location="France"):
             or sys.platform != "win32"
         )
         
-        if is_cloud:
-            logger.info("Cloud/Linux environment detected. Launching headless Chromium...")
-            browser = p.chromium.launch(headless=True)
-        else:
-            logger.info("Local Windows environment detected. Launching headful Edge...")
-            try:
-                browser = p.chromium.launch(channel="msedge", headless=False)
-            except Exception as e:
-                logger.warning(f"Failed to launch Edge, falling back to headless Chromium: {e}")
-                browser = p.chromium.launch(headless=True)
+        headless_mode = True if is_cloud else False
+        logger.info(f"Launching Chromium (headless={headless_mode})...")
+        browser = p.chromium.launch(headless=headless_mode)
                 
         context = browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0"

@@ -17,15 +17,15 @@ class PlaywrightBrowser:
         self.page = None
 
     def open_browser(self):
-        """Khởi tạo Microsoft Edge"""
-        self.logger.info("Đang khởi tạo Microsoft Edge")
+        """Khởi tạo Chromium Browser"""
+        self.logger.info("Đang khởi tạo Chromium Browser")
         self._playwright = sync_playwright().start()
         self.browser = self._playwright.chromium.launch(
-            channel="msedge", headless=self.headless
+            headless=self.headless
         )
         self.context = self.browser.new_context()
         self.context.set_default_timeout(self.timeout)
-        self.logger.info("Đã mở Microsoft Edge")
+        self.logger.info("Đã mở Chromium Browser")
 
     def open_page(self, url: str = None):
         """1. page.goto()"""
