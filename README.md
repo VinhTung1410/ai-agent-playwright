@@ -17,7 +17,7 @@ Ce projet est un outil d'automatisation en Python permettant de collecter, d'ana
 4. **Rapport Excel structuré** : Génère un fichier Excel `output/LinkedIn_BA_France_Report.xlsx` contenant :
    - Onglet **Job Listings** : Liste détaillée des offres avec liens vers les captures d'écran et colonnes de suivi des candidatures.
    - Onglet **Top Skills Ranking** : Classement par fréquence des compétences requises.
-5. **Dashboard Web Interactif (Streamlit)** : Interface graphique complète pour lancer la collecte, suivre l'avancement, éditer les candidatures en direct và visualiser les métriques.
+5. **Dashboard Web Interactif (Streamlit)** : Interface graphique complète pour lancer la collecte, suivre l'avancement, éditer les candidatures en direct et visualiser les métriques.
 
 ---
 
@@ -33,31 +33,31 @@ Ce projet est un outil d'automatisation en Python permettant de collecter, d'ana
 # Cloner le dépôt et naviguer dans le dossier
 cd "AI Agent"
 
-# Cài đặt thư viện Python trong môi trường ảo (.venv)
+# Installation des dépendances Python dans l'environnement virtuel (.venv)
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 
-# Cài đặt trình duyệt Chromium cho Playwright
+# Installation du navigateur Chromium pour Playwright
 .\.venv\Scripts\python.exe -m playwright install chromium
 ```
 
 ---
 
-### 2. Chạy ứng dụng dưới Local
+### 2. Lancement de l'application en local
 
-#### Option A: Lancer le Dashboard Web Streamlit (Recommandé)
+#### Option A : Lancer le Dashboard Web Streamlit (Recommandé)
 
-Dưới Windows PowerShell, sử dụng một trong các câu lệnh sau để tránh lỗi PATH:
+Sous Windows PowerShell, utilisez l'une des commandes suivantes pour éviter les erreurs de PATH :
 
 ```powershell
-# Cách 1: Chạy trực tiếp qua Python module của .venv (Khuyên dùng)
+# Méthode 1 : Lancement direct via le module Python de .venv (Recommandé)
 .\.venv\Scripts\python.exe -m streamlit run src/app.py
 
-# Cách 2: Kích hoạt môi trường ảo trước rồi chạy
+# Méthode 2 : Activation préalable de l'environnement virtuel
 .\.venv\Scripts\Activate.ps1
 streamlit run src/app.py
 ```
 
-#### Option B: Lancer le Scraper en ligne de commande (CLI)
+#### Option B : Lancer le Scraper en ligne de commande (CLI)
 
 ```powershell
 .\.venv\Scripts\python.exe src/main.py
@@ -79,18 +79,18 @@ Le dashboard permet une expérience utilisateur fluide et dynamique :
 ## 📜 Historique des Versions (Changelog)
 
 ### 📌 v1.0.2 (Sprint 3) - *Streamlit Cloud Deployment & Chromium Refactor*
-- **Compatibilité Streamlit Cloud** : Résolution des problèmes de phân quyền `sudo` khi cài đặt trình duyệt Playwright trên môi trường container.
-- **Standardisation Chromium** : Remplacement de Microsoft Edge par trình duyệt Chromium tiêu chuẩn (tự động chạy headless trên Linux/Cloud và headful trên Local).
-- **Cấu hình packages.txt** : Bổ sung đầy đủ các thư viện hệ thống Linux (`libnss3`, `libgbm1`, `libxfixes3`,...) phục vụ chạy Chromium mượt mà trên server.
-- **Cập nhật tài liệu README** : Hướng dẫn chi tiết cách chạy Streamlit local qua `.venv\Scripts\python.exe -m streamlit run src/app.py`.
+- **Compatibilité Streamlit Cloud** : Résolution des problèmes de permissions `sudo` lors de l'installation des navigateurs Playwright dans les conteneurs.
+- **Standardisation Chromium** : Remplacement de Microsoft Edge par le navigateur Chromium standard (exécution automatique en mode headless sur Linux/Cloud et headful en local).
+- **Configuration packages.txt** : Ajout de toutes les bibliothèques système Linux requises (`libnss3`, `libgbm1`, `libxfixes3`...) pour exécuter Chromium de manière optimale sur le serveur.
+- **Mise à jour de la documentation** : Ajout des instructions détaillées pour exécuter Streamlit en local via `.venv\Scripts\python.exe -m streamlit run src/app.py`.
 
 ### 📌 v1.0.1 (Sprint 2) - *Logging, Metadata & Application Tracking*
-- Integrated application tracker columns (*Statut Candidature*, *Date Candidature*, *Contact Recruteur*, *Notes & Remarques*) into Excel reports.
-- Added structured logging system for browser execution trace (`logs/browser.log`).
-- Interactive Streamlit Web App initial setup with `st.data_editor`.
+- **Intégration du suivi des candidatures** : Ajout des colonnes de suivi (*Statut Candidature*, *Date Candidature*, *Contact Recruteur*, *Notes & Remarques*) dans les rapports Excel.
+- **Système de journalisation** : Ajout d'un système de logs structuré pour suivre l'exécution du navigateur (`logs/browser.log`).
+- **Dashboard Streamlit** : Configuration initiale du tableau interactif avec `st.data_editor`.
 
 ### 📌 v1.0.0 (Sprint 1) - *Browser Automation & Core Scraper*
-- Built LinkedIn automated scraper using Playwright.
-- Implemented full-page screenshot capturing with custom CSS overlay injection.
-- Developed skill extraction engine based on standard skill taxonomy.
-- Excel exporter with custom formatting, hyperlinks, and data validations.
+- **Scraper automatisé** : Développement du scraper LinkedIn avec Playwright.
+- **Captures d'écran pleine page** : Intégration de la capture d'écran automatique avec masquage des modales de connexion via injection CSS.
+- **Moteur d'extraction des compétences** : Développement du système d'extraction basé sur une taxonomie de compétences en français.
+- **Exportation Excel** : Génération automatique du rapport Excel structuré avec liens cliquables et validations de données.
