@@ -78,6 +78,16 @@ Le dashboard permet une expérience utilisateur fluide et dynamique :
 
 ## 📜 Historique des Versions (Changelog)
 
+### 📌 v1.0.3 (Sprint 4) - *UX/UI Enhancement, Visual Analytics & Search Performance Optimization*
+- **Contrôle dynamique du volume de recherche** : Ajout d'un curseur (*Slider*) pour sélectionner le nombre d'offres ciblées (Min: 6, Max: 30, Défaut: 10) afin de maîtriser le temps de réponse et éviter les blocages LinkedIn.
+- **Barre de progression en temps réel & ETA** : Affichage d'un retour visuel étape par étape avec calcul d'ETA et état d'avancement pour chaque offre en cours d'extraction.
+- **Tableaux de bord visuels interactifs (Plotly)** :
+  - *Top 15 Compétences* colorées par catégorie (Outil Technique, Méthodologie, Soft Skills, Langues).
+  - *Diagramme circulaire* de répartition des catégories de compétences.
+  - *Top Entreprises qui recrutent* et *Répartition géographique* des opportunités.
+- **Téléchargement direct du rapport Excel** : Bouton d'export direct `.xlsx` intégré dans l'interface pour récupérer le rapport sans naviguer dans l'arborescence des dossiers.
+- **Optimisation des performances du scraper** : Réduction intelligente du nombre de défilements selon le volume demandé et ajustement des délais de chargement.
+
 ### 📌 v1.0.2 (Sprint 3) - *Streamlit Cloud Deployment & Chromium Refactor*
 - **Compatibilité Streamlit Cloud** : Résolution des problèmes de permissions `sudo` lors de l'installation des navigateurs Playwright dans les conteneurs.
 - **Standardisation Chromium** : Remplacement de Microsoft Edge par le navigateur Chromium standard (exécution automatique en mode headless sur Linux/Cloud et headful en local).

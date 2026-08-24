@@ -1,13 +1,17 @@
 import os
+import time
 import subprocess
 import pandas as pd
 import streamlit as st
+import plotly.express as px
+import plotly.graph_objects as go
 
 from scraper import scrape_linkedin, process_and_export
 
 # Page configuration
 st.set_page_config(
     page_title="LinkedIn Job Search & Application Tracker",
+    page_icon="💼",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -19,19 +23,46 @@ st.markdown("""
         font-size: 2.2rem;
         color: #1F4E78;
         font-weight: 700;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.2rem;
     }
     .sub-title {
-        font-size: 1.1rem;
+        font-size: 1.05rem;
         color: #555555;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
     }
     .metric-card {
-        background-color: #F2F4F7;
-        padding: 1rem;
-        border-radius: 8px;
+        background: linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%);
+        padding: 1.1rem 1.2rem;
+        border-radius: 10px;
+        border: 1px solid #E2E8F0;
         border-left: 5px solid #1F4E78;
-        margin-bottom: 1rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+    }
+    .metric-label {
+        font-size: 0.85rem;
+        color: #64748B;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+        margin-bottom: 0.3rem;
+    }
+    .metric-value {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: #0F172A;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .eta-box {
+        background-color: #F1F5F9;
+        border-radius: 6px;
+        padding: 8px 12px;
+        font-size: 0.88rem;
+        color: #334155;
+        margin-top: 5px;
+        margin-bottom: 12px;
+        border-left: 3px solid #3B82F6;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -56,7 +87,7 @@ def load_data():
             df_ranking = pd.read_excel(EXCEL_PATH, sheet_name="Top Skills Ranking")
             return df_jobs, df_ranking
         except Exception as e:
-            st.error(f"Error loading Excel file: {e}")
+            st.error(f"Erreur lors du chargement du fichier Excel : {e}")
     return None, None
 
 def save_data(df_jobs):
@@ -69,141 +100,309 @@ def save_data(df_jobs):
             df_jobs.to_excel(writer, sheet_name="Job Listings", index=False)
             if df_ranking is not None:
                 df_ranking.to_excel(writer, sheet_name="Top Skills Ranking", index=False)
-        st.success("Changes saved successfully to Excel report!")
+        st.success("✅ Modifications enregistrées avec succès dans le rapport Excel !")
     except Exception as e:
-        st.error(f"Error saving data: {e}")
+        st.error(f"Erreur lors de la sauvegarde : {e}")
 
-# App Title
+# App Title & Header
 st.markdown('<div class="main-title">💼 LinkedIn Job Scraper & Application Tracker</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">Recherchez des opportunités d\'alternance, analysez les compétences clés requises et gérez vos candidatures en temps réel. (v1.0.1)</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">Collectez et analysez les opportunités d\'alternance, visualisez les compétences clés et pilotez vos candidatures en temps réel. (Sprint 4)</div>', unsafe_allow_html=True)
 
 # Load existing data
 df_jobs, df_ranking = load_data()
 
-# Sidebar: Controls & Scraper trigger
+# Sidebar: Controls & Search Parameters
 with st.sidebar:
-    st.header("🔍 Critères de Recherche")
+    st.header("⚙️ Paramètres de Recherche")
     keywords_input = st.text_input("Mots-clés de l'emploi", value="alternance business analyst")
     location_input = st.text_input("Localisation", value="France")
     
     st.markdown("---")
-    st.subheader("🚀 Lancer une nouvelle recherche")
-    st.write("Le scraper va lancer le navigateur Chromium, récupérer jusqu'à 30 offres récentes publiées dans les dernières 24h, et extraire les compétences.")
+    st.subheader("🎯 Contrôle de la Collecte")
     
-    if st.button("Lancer la collecte", type="primary"):
-        with st.status("Collecte des offres en cours...", expanded=True) as status:
+    max_jobs_input = st.slider(
+        "Nombre max d'offres à collecter",
+        min_value=6,
+        max_value=30,
+        value=10,
+        step=2,
+        help="Recommandation : 10 à 14 offres pour une analyse rapide en moins de 30 secondes."
+    )
+    
+    # Estimated time calculation
+    est_seconds = int(max_jobs_input * 2.3 + 6)
+    st.markdown(f"""
+        <div class="eta-box">
+            ⏱️ <b>Temps estimé :</b> ~{est_seconds} secondes<br>
+            💡 <i>Pour éviter d'être bloqué par LinkedIn, la limite est fixée à 30 offres max.</i>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("🚀 Lancer la collecte", type="primary", use_container_width=True):
+        progress_placeholder = st.empty()
+        status_text = st.empty()
+        detail_text = st.empty()
+        
+        with st.status("🔄 Collecte des offres en cours...", expanded=True) as status_box:
             try:
-                    import glob
-                    cache_dir = os.path.expanduser("~/.cache/ms-playwright")
-                    # Check if any chromium folder exists physically in the cache directory
-                    has_chromium = len(glob.glob(os.path.join(cache_dir, "chromium_headless_shell-*"))) > 0 or len(glob.glob(os.path.join(cache_dir, "chromium-*"))) > 0
-                    
-                    if not has_chromium:
-                        status.write("Chromium introuvable. Téléchargement du navigateur (environ 30-60s)...")
-                        import sys
-                        # Install chromium browser binary without --with-deps (system dependencies are provided by packages.txt)
-                        res = subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], capture_output=True, text=True)
-                        if res.returncode != 0:
-                            st.warning(f"Avertissement installation Playwright: {res.stderr}\n{res.stdout}")
+                start_time = time.time()
+                
+                # Check / install Playwright Chromium if missing
+                import glob
+                cache_dir = os.path.expanduser("~/.cache/ms-playwright")
+                has_chromium = len(glob.glob(os.path.join(cache_dir, "chromium_headless_shell-*"))) > 0 or len(glob.glob(os.path.join(cache_dir, "chromium-*"))) > 0
+                
+                if not has_chromium:
+                    status_text.text("📦 Téléchargement de Chromium (environ 30-60s)...")
+                    import sys
+                    res = subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], capture_output=True, text=True)
+                    if res.returncode != 0:
+                        st.warning(f"Avertissement installation Playwright: {res.stderr}\n{res.stdout}")
 
-                            
-                    status.write("Lancement du navigateur...")
-                    jobs_data = scrape_linkedin(keywords_input, location_input)
-                    
-                    status.write(f"Analyse des compétences et export Excel ({len(jobs_data)} offres trouvées)...")
-                    process_and_export(jobs_data)
-                    
-                    status.update(label="Collecte terminée avec succès !", state="complete")
-                    st.rerun()
+                def progress_callback(current, total, message):
+                    elapsed = time.time() - start_time
+                    ratio = min(1.0, current / max(1, total)) if total > 0 else 0.0
+                    progress_placeholder.progress(ratio)
+                    status_text.markdown(f"**Progression :** `{int(ratio * 100)}%` ({current}/{total} offres) — ⏱️ Écoulé : `{elapsed:.1f}s`")
+                    detail_text.text(f"📍 {message}")
+
+                jobs_data = scrape_linkedin(
+                    keywords=keywords_input,
+                    location=location_input,
+                    max_jobs=max_jobs_input,
+                    progress_callback=progress_callback
+                )
+                
+                status_text.text(f"📊 Analyse des compétences et génération du rapport ({len(jobs_data)} offres)...")
+                process_and_export(jobs_data)
+                
+                total_duration = time.time() - start_time
+                progress_placeholder.progress(1.0)
+                status_box.update(label=f"✅ Collecte terminée với succès en {total_duration:.1f}s !", state="complete")
+                time.sleep(1)
+                st.rerun()
+                
             except Exception as e:
-                status.update(label=f"Erreur lors de la collecte : {e}", state="error")
+                status_box.update(label=f"❌ Erreur lors de la collecte : {e}", state="error")
                 st.error(e)
 
 # Main Section Layout
-if df_jobs is not None:
-    # 1. Metric Overview
-    col1, col2 = st.columns(2)
+if df_jobs is not None and not df_jobs.empty:
+    # 1. Metric Overview Cards
+    col1, col2, col3, col4 = st.columns(4)
+    
     with col1:
         st.markdown(f"""
             <div class="metric-card">
-                <span style="font-size: 0.9rem; color: #666;">Offres collectées</span><br>
-                <span style="font-size: 1.8rem; font-weight: bold; color: #1F4E78;">{len(df_jobs)}</span>
+                <div class="metric-label">Total Offres</div>
+                <div class="metric-value">{len(df_jobs)}</div>
             </div>
         """, unsafe_allow_html=True)
+        
     with col2:
         top_skill = df_ranking.iloc[0]["Skill Name"] if df_ranking is not None and not df_ranking.empty else "N/A"
         top_rate = df_ranking.iloc[0]["Occurrence Rate (%)"] if df_ranking is not None and not df_ranking.empty else "0%"
         st.markdown(f"""
-            <div class="metric-card">
-                <span style="font-size: 0.9rem; color: #666;">Compétence la plus demandée</span><br>
-                <span style="font-size: 1.8rem; font-weight: bold; color: #2E7D32;">{top_skill} ({top_rate})</span>
+            <div class="metric-card" style="border-left-color: #2E7D32;">
+                <div class="metric-label">Compétence N°1</div>
+                <div class="metric-value" style="color: #2E7D32;" title="{top_skill}">{top_skill} <span style="font-size: 1rem; color: #64748B;">({top_rate})</span></div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+    with col3:
+        top_comp = df_jobs["Company"].value_counts().index[0] if "Company" in df_jobs.columns and not df_jobs.empty else "N/A"
+        st.markdown(f"""
+            <div class="metric-card" style="border-left-color: #D97706;">
+                <div class="metric-label">Top Recruteur</div>
+                <div class="metric-value" style="color: #D97706;" title="{top_comp}">{top_comp}</div>
             </div>
         """, unsafe_allow_html=True)
 
-    # 2. Main Job Listings Tracker (Editable Table!)
-    st.subheader("📋 Liste des offres d'emploi et suivi des candidatures")
-    st.info("💡 Astuce : Vous pouvez modifier les colonnes de suivi (Statut, Date, Contact, Notes) directement dans le tableau ci-dessous, puis cliquer sur le bouton Sauvegarder pour mettre à jour le fichier Excel !")
-    
-    # Render with Streamlit Data Editor
-    edited_df = st.data_editor(
-        df_jobs,
-        column_config={
-            "ID": st.column_config.NumberColumn(disabled=True),
-            "Job Title": st.column_config.TextColumn("Titre du Poste", disabled=True),
-            "Company": st.column_config.TextColumn("Entreprise", disabled=True),
-            "Location": st.column_config.TextColumn("Localisation", disabled=True),
-            "Job URL": st.column_config.LinkColumn("Lien de l'Offre", disabled=True),
-            "Key Skills Required": st.column_config.TextColumn("Compétences Clés", disabled=True),
-            "Screenshot File": st.column_config.TextColumn("Fichier Screenshot", disabled=True),
-            "Statut Candidature": st.column_config.SelectboxColumn(
-                "Statut Candidature",
-                options=["À postuler", "Postulé", "Entretien", "Refusé", "Offre reçue"],
-                required=True
-            ),
-            "Date Candidature": st.column_config.TextColumn("Date de Candidature"),
-            "Contact Recruteur": st.column_config.TextColumn("Contact Recruteur"),
-            "Notes & Remarques": st.column_config.TextColumn("Notes & Remarques")
-        },
-        width="stretch",
-        hide_index=True
-    )
-    
-    # Save button for modifications
-    if st.button("Sauvegarder les modifications"):
-        save_data(edited_df)
+    with col4:
+        # Count distinct locations
+        top_loc = df_jobs["Location"].value_counts().index[0] if "Location" in df_jobs.columns and not df_jobs.empty else "France"
+        st.markdown(f"""
+            <div class="metric-card" style="border-left-color: #8B5CF6;">
+                <div class="metric-label">Zone Principale</div>
+                <div class="metric-value" style="color: #8B5CF6;" title="{top_loc}">{top_loc}</div>
+            </div>
+        """, unsafe_allow_html=True)
 
-    # 3. Two columns for Visualizations and Screenshot Viewer
-    st.markdown("---")
-    col_left, col_right = st.columns([1, 1])
-    
-    with col_left:
-        st.subheader("📊 Compétences les plus recherchées")
-        if df_ranking is not None and not df_ranking.empty:
-            # Simple bar chart using Streamlit native charts
-            chart_df = df_ranking.head(15).copy()
-            # Clean occurrence rate to float for plotting
-            chart_df["Taux de demande (%)"] = chart_df["Occurrence Rate (%)"].str.replace("%", "").astype(float)
-            st.bar_chart(
-                chart_df,
-                x="Skill Name",
-                y="Taux de demande (%)",
-                color="#1F4E78",
-                horizontal=True
-            )
-        else:
-            st.write("Aucune compétence extraite pour le moment.")
-            
-    with col_right:
-        st.subheader("🖼️ Visualiseur de Captures d'Écran")
-        # Dropdown to select a job to display its screenshot
-        job_options = {f"{row['ID']}. {row['Company']} - {row['Job Title']}": row["Screenshot File"] for _, row in df_jobs.iterrows()}
-        selected_job = st.selectbox("Sélectionnez une offre pour voir sa capture d'écran", list(job_options.keys()))
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Tabs for Rich Dashboard Navigation
+    tab1, tab2, tab3 = st.tabs([
+        "📊 Tableaux de Bord & Visualisations",
+        "📋 Suivi des Candidatures",
+        "🖼️ Visualiseur de Captures d'Écran"
+    ])
+
+    # TAB 1: VISUAL ANALYTICS
+    with tab1:
+        st.subheader("📈 Analyse Visuelle des Offres & Compétences")
         
-        if selected_job:
-            screenshot_path = job_options[selected_job]
-            if pd.notna(screenshot_path) and os.path.exists(screenshot_path):
-                st.image(screenshot_path, caption=selected_job, width="stretch")
+        row1_col1, row1_col2 = st.columns([3, 2])
+        
+        with row1_col1:
+            if df_ranking is not None and not df_ranking.empty:
+                chart_df = df_ranking.head(15).copy()
+                chart_df["Taux (%)"] = chart_df["Occurrence Rate (%)"].astype(str).str.replace("%", "").astype(float)
+                # Sort ascending for better horizontal bar rendering
+                chart_df = chart_df.sort_values(by="Taux (%)", ascending=True)
+
+                fig_skills = px.bar(
+                    chart_df,
+                    x="Taux (%)",
+                    y="Skill Name",
+                    color="Category",
+                    orientation="h",
+                    title="<b>Top 15 des Compétences les Plus Demandées</b>",
+                    labels={"Taux (%)": "Taux de mention dans les offres (%)", "Skill Name": "Compétence", "Category": "Catégorie"},
+                    color_discrete_map={
+                        "Outil Technique / Logiciel": "#1F4E78",
+                        "Méthodologie / Framework": "#0284C7",
+                        "Compétence Professionnelle / Soft Skill": "#10B981",
+                        "Langue": "#F59E0B"
+                    },
+                    text="Taux (%)"
+                )
+                fig_skills.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+                fig_skills.update_layout(
+                    height=450,
+                    margin=dict(l=10, r=30, t=50, b=30),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                )
+                st.plotly_chart(fig_skills, use_container_width=True)
             else:
-                st.warning("Aucune capture d'écran disponible ou fichier manquant.")
+                st.info("Aucune donnée de compétence disponible.")
+
+        with row1_col2:
+            if df_ranking is not None and not df_ranking.empty and "Category" in df_ranking.columns:
+                cat_counts = df_ranking.groupby("Category")["Job Count"].sum().reset_index()
+                fig_cat = px.pie(
+                    cat_counts,
+                    values="Job Count",
+                    names="Category",
+                    hole=0.45,
+                    title="<b>Répartition par Catégorie de Compétences</b>",
+                    color="Category",
+                    color_discrete_map={
+                        "Outil Technique / Logiciel": "#1F4E78",
+                        "Méthodologie / Framework": "#0284C7",
+                        "Compétence Professionnelle / Soft Skill": "#10B981",
+                        "Langue": "#F59E0B"
+                    }
+                )
+                fig_cat.update_layout(
+                    height=450,
+                    margin=dict(l=10, r=10, t=50, b=30),
+                    legend=dict(orientation="h", yanchor="bottom", y=-0.15, xanchor="center", x=0.5)
+                )
+                st.plotly_chart(fig_cat, use_container_width=True)
+
+        st.markdown("---")
+        
+        row2_col1, row2_col2 = st.columns([1, 1])
+        
+        with row2_col1:
+            # Top Companies
+            comp_series = df_jobs["Company"].value_counts().head(8).reset_index()
+            comp_series.columns = ["Entreprise", "Nombre d'offres"]
+            comp_series = comp_series.sort_values(by="Nombre d'offres", ascending=True)
+
+            fig_comp = px.bar(
+                comp_series,
+                x="Nombre d'offres",
+                y="Entreprise",
+                orientation="h",
+                title="<b>Top Entreprises qui Recrutent</b>",
+                color="Nombre d'offres",
+                color_continuous_scale="Blues",
+                text="Nombre d'offres"
+            )
+            fig_comp.update_traces(textposition='outside')
+            fig_comp.update_layout(height=360, margin=dict(l=10, r=30, t=50, b=30), coloraxis_showscale=False)
+            st.plotly_chart(fig_comp, use_container_width=True)
+
+        with row2_col2:
+            # Location Distribution
+            loc_series = df_jobs["Location"].value_counts().head(8).reset_index()
+            loc_series.columns = ["Localisation", "Nombre d'offres"]
+            
+            fig_loc = px.pie(
+                loc_series,
+                values="Nombre d'offres",
+                names="Localisation",
+                title="<b>Répartition Géographique des Postes</b>",
+                color_discrete_sequence=px.colors.qualitative.Pastel
+            )
+            fig_loc.update_layout(height=360, margin=dict(l=10, r=10, t=50, b=30))
+            st.plotly_chart(fig_loc, use_container_width=True)
+
+    # TAB 2: APPLICATION TRACKER & EXCEL EXPORT
+    with tab2:
+        st.subheader("📋 Tableau de Bord de Suivi des Candidatures")
+        st.caption("Modifiez directement vos statuts de candidature, dates et notes dans le tableau ci-dessous.")
+
+        col_act1, col_act2, _ = st.columns([2, 2, 4])
+        with col_act1:
+            save_clicked = st.button("💾 Sauvegarder les modifications", type="primary", use_container_width=True)
+            
+        with col_act2:
+            # Direct Excel Download button
+            if os.path.exists(EXCEL_PATH):
+                with open(EXCEL_PATH, "rb") as f:
+                    excel_data = f.read()
+                st.download_button(
+                    label="📥 Télécharger le Rapport Excel",
+                    data=excel_data,
+                    file_name="LinkedIn_Job_Tracker_Report.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+
+        # Render Data Editor
+        edited_df = st.data_editor(
+            df_jobs,
+            column_config={
+                "ID": st.column_config.NumberColumn("ID", disabled=True, width="small"),
+                "Job Title": st.column_config.TextColumn("Titre du Poste", disabled=True, width="medium"),
+                "Company": st.column_config.TextColumn("Entreprise", disabled=True, width="small"),
+                "Location": st.column_config.TextColumn("Localisation", disabled=True, width="small"),
+                "Job URL": st.column_config.LinkColumn("Lien LinkedIn", disabled=True, width="small"),
+                "Key Skills Required": st.column_config.TextColumn("Compétences Clés", disabled=True, width="medium"),
+                "Screenshot File": st.column_config.TextColumn("Fichier Capture", disabled=True, width="small"),
+                "Statut Candidature": st.column_config.SelectboxColumn(
+                    "Statut Candidature",
+                    options=["À postuler", "Postulé", "Entretien", "Refusé", "Offre reçue"],
+                    required=True,
+                    width="medium"
+                ),
+                "Date Candidature": st.column_config.TextColumn("Date Candidature", width="small"),
+                "Contact Recruteur": st.column_config.TextColumn("Contact Recruteur", width="medium"),
+                "Notes & Remarques": st.column_config.TextColumn("Notes & Remarques", width="large")
+            },
+            width="stretch",
+            hide_index=True
+        )
+
+        if save_clicked:
+            save_data(edited_df)
+
+    # TAB 3: SCREENSHOT VIEWER
+    with tab3:
+        st.subheader("🖼️ Visualiseur de Captures d'Écran")
+        st.caption("Consultez la capture d'écran pleine page de chaque offre pour relire la fiche de poste complète hors-ligne.")
+        
+        job_options = {f"#{row['ID']} - {row['Company']} ({row['Job Title']})": row["Screenshot File"] for _, row in df_jobs.iterrows()}
+        selected_job_label = st.selectbox("Sélectionnez une offre à afficher", list(job_options.keys()))
+        
+        if selected_job_label:
+            screenshot_path = job_options[selected_job_label]
+            if pd.notna(screenshot_path) and os.path.exists(screenshot_path):
+                st.image(screenshot_path, caption=selected_job_label, width="stretch")
+            else:
+                st.warning("⚠️ Aucune capture d'écran disponible ou fichier introuvable.")
+
 else:
-    st.warning("Aucune donnée disponible. Veuillez saisir vos mots-clés dans la barre latérale gauche et cliquer sur 'Lancer la collecte'.")
+    st.info("💡 Aucune donnée disponible pour le moment. Veuillez configurer vos mots-clés dans la barre latérale và cliquer sur **'Lancer la collecte'**.")
