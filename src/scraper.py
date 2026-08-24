@@ -78,8 +78,11 @@ def extract_skills_from_text(text):
             extracted.append(skill_name)
     return extracted
 
-def scrape_linkedin(keywords="alternance business analyst", location="France"):
+def scrape_linkedin(keywords="alternance business analyst", location="France", max_jobs=10, progress_callback=None):
     os.makedirs("output/screenshots", exist_ok=True)
+
+    if progress_callback:
+        progress_callback(0, max_jobs, "Démarrage du navigateur Chromium...")
 
     with sync_playwright() as p:
         # Launch standard Chromium (headless on cloud/Linux, headful on local)
@@ -107,8 +110,12 @@ def scrape_linkedin(keywords="alternance business analyst", location="France"):
         encoded_location = quote(location)
         search_url = f"https://www.linkedin.com/jobs/search?keywords={encoded_keywords}&location={encoded_location}&f_TPR=r86400"
         logger.info(f"Navigating to: {search_url}")
+        
+        if progress_callback:
+            progress_callback(0, max_jobs, f"Recherche sur LinkedIn pour '{keywords}' ({location})...")
+            
         page.goto(search_url)
-        page.wait_for_timeout(3000)
+        page.wait_for_timeout(2500)
 
         # Inject CSS to hide obstructive login modals and overlays
         try:
@@ -120,8 +127,8 @@ def scrape_linkedin(keywords="alternance business analyst", location="France"):
                     .contextual-sign-in-modal,
                     .authwall,
                     #advocate-modal { 
-                        display: none !important; 
-                        pointer-events: none !important; 
+                    display: none !important; 
+                    pointer-events: none !important; 
                     }
                     body {
                         overflow: auto !important;
@@ -138,14 +145,14 @@ def scrape_linkedin(keywords="alternance business analyst", location="France"):
             accept_btn = page.locator("button:has-text('Accept'), button:has-text('Accepter'), button.artdeco-global-alert__action").first
             if accept_btn.count() > 0 and accept_btn.is_visible():
                 accept_btn.click()
-                page.wait_for_timeout(1000)
+                page.wait_for_timeout(800)
                 logger.info("Dismissed cookie consent banner.")
         except Exception as e:
             logger.warning(f"Could not dismiss cookie banner: {e}")
 
         # Wait for the job cards to load first before scrolling!
         try:
-            page.wait_for_selector(".base-card, .base-search-card, a.base-card__full-link", timeout=15000)
+            page.wait_for_selector(".base-card, .base-search-card, a.base-card__full-link", timeout=12000)
             logger.info("Job cards loaded.")
         except Exception as e:
             logger.warning(f"Timeout waiting for job cards: {e}")
@@ -153,15 +160,21 @@ def scrape_linkedin(keywords="alternance business analyst", location="France"):
             page.screenshot(path="output/screenshots/search_page_error.png")
             logger.info("Saved search page error screenshot to output/screenshots/search_page_error.png")
 
-        logger.info("Scrolling to find job listings...")
-        for _ in range(8):
+        # Dynamically scale scroll count based on max_jobs
+        scroll_times = min(8, max(2, (max_jobs // 4) + 1))
+        logger.info(f"Scrolling {scroll_times} times to find job listings...")
+        
+        if progress_callback:
+            progress_callback(0, max_jobs, f"Chargement de la liste des offres ({scroll_times} défilements)...")
+            
+        for _ in range(scroll_times):
             page.evaluate("window.scrollTo(0, document.body.scrollHeight);")
-            page.wait_for_timeout(2000)
+            page.wait_for_timeout(1500)
             see_more = page.locator("button.infinite-scroller__show-more-button")
             if see_more.is_visible():
                 try:
                     see_more.click()
-                    page.wait_for_timeout(2000)
+                    page.wait_for_timeout(1500)
                 except Exception as e:
                     logger.warning(f"See more button click failed: {e}")
 
@@ -177,9 +190,9 @@ def scrape_linkedin(keywords="alternance business analyst", location="France"):
                 if clean_url not in raw_urls:
                     raw_urls.append(clean_url)
         
-        target_count = min(30, len(raw_urls))
-        if target_count < 20:
-            logger.warning(f"Only found {len(raw_urls)} jobs. Processing all of them.")
+        target_count = min(max_jobs, len(raw_urls))
+        if target_count < max_jobs:
+            logger.warning(f"Found only {len(raw_urls)} jobs (requested {max_jobs}). Processing all available.")
             target_count = len(raw_urls)
             
         logger.info(f"Targeting {target_count} jobs out of {len(raw_urls)} found.")
@@ -188,9 +201,12 @@ def scrape_linkedin(keywords="alternance business analyst", location="France"):
         
         for idx, job_url in enumerate(raw_urls[:target_count], start=1):
             logger.info(f"Processing job {idx}/{target_count}: {job_url}")
+            if progress_callback:
+                progress_callback(idx - 1, target_count, f"Extraction [{idx}/{target_count}] : Chargement de la page...")
+
             try:
                 page.goto(job_url)
-                page.wait_for_timeout(3000)
+                page.wait_for_timeout(2000)
                 
                 # Inject CSS to hide obstructive login modals and overlays on job page
                 try:
@@ -218,7 +234,7 @@ def scrape_linkedin(keywords="alternance business analyst", location="France"):
                 if dismiss_btn.count() > 0 and dismiss_btn.is_visible():
                     try:
                         dismiss_btn.click()
-                        page.wait_for_timeout(500)
+                        page.wait_for_timeout(400)
                     except Exception:
                         pass
 
@@ -234,6 +250,9 @@ def scrape_linkedin(keywords="alternance business analyst", location="France"):
                 if comp_sel.count() > 0:
                     company = comp_sel.first.text_content().strip()
 
+                if progress_callback:
+                    progress_callback(idx - 1, target_count, f"Extraction [{idx}/{target_count}] : {company} - {job_title[:30]}...")
+
                 # Location
                 loc_sel = page.locator("span.topcard__flavor--metadata, span.sub-nav-item__sub-text")
                 location = "France"
@@ -248,7 +267,7 @@ def scrape_linkedin(keywords="alternance business analyst", location="France"):
                     if show_more.count() > 0 and show_more.is_visible():
                         try:
                             show_more.click()
-                            page.wait_for_timeout(1000)
+                            page.wait_for_timeout(600)
                         except Exception:
                             pass
                     description = desc_sel.first.text_content().strip()
@@ -277,11 +296,17 @@ def scrape_linkedin(keywords="alternance business analyst", location="France"):
                     "Skills List": skills_required
                 })
                 
-                time.sleep(2.5)
+                if progress_callback:
+                    progress_callback(idx, target_count, f"Terminé [{idx}/{target_count}] : {company} ({len(skills_required)} compétences trouvées)")
+                
+                time.sleep(1.2)
 
             except Exception as e:
                 logger.error(f"Error processing job {idx}: {e}")
                 continue
+
+        if progress_callback:
+            progress_callback(target_count, target_count, "Analyse terminée. Fermeture du navigateur...")
 
         browser.close()
         
