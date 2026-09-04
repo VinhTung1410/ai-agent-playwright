@@ -6,7 +6,7 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 
-from scraper import scrape_linkedin, process_and_export
+from scraper import scrape_linkedin, process_and_export, format_job_description
 
 # Page configuration
 st.set_page_config(
@@ -583,7 +583,9 @@ if df_jobs is not None and not df_jobs.empty:
             st.markdown("### 📄 About the job")
             desc_text = str(selected_job.get("Description", "")).strip()
             if desc_text and desc_text != "nan":
-                st.markdown(f'<div class="job-desc-box">{desc_text}</div>', unsafe_allow_html=True)
+                formatted_desc = format_job_description(desc_text)
+                with st.container(height=380):
+                    st.markdown(formatted_desc)
             else:
                 st.info("ℹ️ Aucune description textuelle disponible pour cette offre.")
 
