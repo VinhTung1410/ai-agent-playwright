@@ -64,6 +64,65 @@ st.markdown("""
         margin-bottom: 12px;
         border-left: 3px solid #3B82F6;
     }
+    .job-card {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-top: 0.8rem;
+        margin-bottom: 1.2rem;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+    .job-title {
+        font-size: 1.45rem;
+        font-weight: 700;
+        color: #0F172A;
+        margin-bottom: 0.4rem;
+    }
+    .job-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        font-size: 0.95rem;
+        color: #475569;
+        margin-bottom: 1rem;
+        padding-bottom: 0.8rem;
+        border-bottom: 1px solid #F1F5F9;
+    }
+    .job-meta-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #F8FAFC;
+        padding: 4px 10px;
+        border-radius: 6px;
+        border: 1px solid #E2E8F0;
+        font-weight: 500;
+    }
+    .skill-pill {
+        display: inline-block;
+        background: #EFF6FF;
+        color: #1D4ED8;
+        border: 1px solid #BFDBFE;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-right: 6px;
+        margin-bottom: 6px;
+    }
+    .job-desc-box {
+        background: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 8px;
+        padding: 1.2rem;
+        font-size: 0.92rem;
+        line-height: 1.65;
+        color: #1E293B;
+        max-height: 420px;
+        overflow-y: auto;
+        white-space: pre-line;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -83,6 +142,19 @@ def load_data():
                     df_jobs[col] = df_jobs[col].fillna("").astype(str)
                 else:
                     df_jobs[col] = ""
+                    
+            meta_defaults = {
+                "Employment Type": "Alternance / CDI",
+                "Seniority Level": "Non spécifié",
+                "Industries": "Non spécifié",
+                "Job Function": "Non spécifié",
+                "Company URL": ""
+            }
+            for col, default_val in meta_defaults.items():
+                if col in df_jobs.columns:
+                    df_jobs[col] = df_jobs[col].fillna(default_val).astype(str)
+                else:
+                    df_jobs[col] = default_val
                     
             df_ranking = pd.read_excel(EXCEL_PATH, sheet_name="Top Skills Ranking")
             return df_jobs, df_ranking
@@ -234,7 +306,7 @@ if df_jobs is not None and not df_jobs.empty:
     tab1, tab2, tab3 = st.tabs([
         "📊 Tableaux de Bord & Visualisations",
         "📋 Suivi des Candidatures",
-        "🖼️ Visualiseur de Captures d'Écran"
+        "📑 Fiche de Poste & Captures d'Écran"
     ])
 
     # TAB 1: VISUAL ANALYTICS
@@ -243,12 +315,27 @@ if df_jobs is not None and not df_jobs.empty:
         
         row1_col1, row1_col2 = st.columns([3, 2])
         
+        # Common hover styling for all charts
+        common_hoverlabel = dict(
+            bgcolor="#1E293B",
+            font_size=12,
+            font_color="#FFFFFF",
+            font_family="sans-serif",
+            bordercolor="#334155"
+        )
+
         with row1_col1:
             if df_ranking is not None and not df_ranking.empty:
                 chart_df = df_ranking.head(15).copy()
                 chart_df["Taux (%)"] = chart_df["Occurrence Rate (%)"].astype(str).str.replace("%", "").astype(float)
                 # Sort ascending for better horizontal bar rendering
                 chart_df = chart_df.sort_values(by="Taux (%)", ascending=True)
+
+                total_jobs = len(df_jobs)
+                # Format directly as 'X/Y (Z%)' for instant clarity without needing hover popups
+                chart_df["Label"] = chart_df.apply(
+                    lambda r: f"{int(r['Job Count'])}/{total_jobs} ({r['Taux (%)']:.1f}%)", axis=1
+                )
 
                 fig_skills = px.bar(
                     chart_df,
@@ -264,15 +351,29 @@ if df_jobs is not None and not df_jobs.empty:
                         "Compétence Professionnelle / Soft Skill": "#10B981",
                         "Langue": "#F59E0B"
                     },
-                    text="Taux (%)"
+                    text="Label"
                 )
-                fig_skills.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
+                max_rate = chart_df["Taux (%)"].max() if not chart_df.empty else 100
+                fig_skills.update_traces(
+                    textposition='outside',
+                    cliponaxis=False,
+                    hoverinfo='skip',
+                    hovertemplate=None
+                )
+                fig_skills.update_xaxes(range=[0, max(max_rate * 1.25, 10)])
                 fig_skills.update_layout(
-                    height=450,
-                    margin=dict(l=10, r=30, t=50, b=30),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                    height=490,
+                    margin=dict(l=10, r=90, t=50, b=60),
+                    legend=dict(
+                        orientation="h",
+                        yanchor="top",
+                        y=-0.2,
+                        xanchor="center",
+                        x=0.5,
+                        title=None
+                    )
                 )
-                st.plotly_chart(fig_skills, use_container_width=True)
+                st.plotly_chart(fig_skills, use_container_width=True, config={'displayModeBar': False})
             else:
                 st.info("Aucune donnée de compétence disponible.")
 
@@ -293,12 +394,16 @@ if df_jobs is not None and not df_jobs.empty:
                         "Langue": "#F59E0B"
                     }
                 )
-                fig_cat.update_layout(
-                    height=450,
-                    margin=dict(l=10, r=10, t=50, b=30),
-                    legend=dict(orientation="h", yanchor="bottom", y=-0.15, xanchor="center", x=0.5)
+                fig_cat.update_traces(
+                    hovertemplate="<b>%{label}</b><br>Occurrences : <b>%{value}</b> (%{percent})<extra></extra>"
                 )
-                st.plotly_chart(fig_cat, use_container_width=True)
+                fig_cat.update_layout(
+                    height=480,
+                    margin=dict(l=10, r=10, t=50, b=60),
+                    hoverlabel=common_hoverlabel,
+                    legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5, title=None)
+                )
+                st.plotly_chart(fig_cat, use_container_width=True, config={'displayModeBar': False})
 
         st.markdown("---")
         
@@ -309,6 +414,12 @@ if df_jobs is not None and not df_jobs.empty:
             comp_series = df_jobs["Company"].value_counts().head(8).reset_index()
             comp_series.columns = ["Entreprise", "Nombre d'offres"]
             comp_series = comp_series.sort_values(by="Nombre d'offres", ascending=True)
+            
+            total_jobs = len(df_jobs)
+            comp_col = "Nombre d'offres"
+            comp_series["Label"] = comp_series[comp_col].apply(
+                lambda count: f"{int(count)}/{total_jobs} ({int(count)/max(1, total_jobs)*100:.0f}%)"
+            )
 
             fig_comp = px.bar(
                 comp_series,
@@ -318,11 +429,22 @@ if df_jobs is not None and not df_jobs.empty:
                 title="<b>Top Entreprises qui Recrutent</b>",
                 color="Nombre d'offres",
                 color_continuous_scale="Blues",
-                text="Nombre d'offres"
+                text="Label"
             )
-            fig_comp.update_traces(textposition='outside')
-            fig_comp.update_layout(height=360, margin=dict(l=10, r=30, t=50, b=30), coloraxis_showscale=False)
-            st.plotly_chart(fig_comp, use_container_width=True)
+            max_comp_count = comp_series["Nombre d'offres"].max() if not comp_series.empty else 5
+            fig_comp.update_traces(
+                textposition='outside',
+                cliponaxis=False,
+                hoverinfo='skip',
+                hovertemplate=None
+            )
+            fig_comp.update_xaxes(range=[0, max(max_comp_count * 1.35, 3)])
+            fig_comp.update_layout(
+                height=360,
+                margin=dict(l=10, r=80, t=50, b=30),
+                coloraxis_showscale=False
+            )
+            st.plotly_chart(fig_comp, use_container_width=True, config={'displayModeBar': False})
 
         with row2_col2:
             # Location Distribution
@@ -336,8 +458,15 @@ if df_jobs is not None and not df_jobs.empty:
                 title="<b>Répartition Géographique des Postes</b>",
                 color_discrete_sequence=px.colors.qualitative.Pastel
             )
-            fig_loc.update_layout(height=360, margin=dict(l=10, r=10, t=50, b=30))
-            st.plotly_chart(fig_loc, use_container_width=True)
+            fig_loc.update_traces(
+                hovertemplate="<b>%{label}</b><br>Nombre d'offres : <b>%{value}</b> (%{percent})<extra></extra>"
+            )
+            fig_loc.update_layout(
+                height=360,
+                margin=dict(l=10, r=10, t=50, b=30),
+                hoverlabel=common_hoverlabel
+            )
+            st.plotly_chart(fig_loc, use_container_width=True, config={'displayModeBar': False})
 
     # TAB 2: APPLICATION TRACKER & EXCEL EXPORT
     with tab2:
@@ -369,9 +498,11 @@ if df_jobs is not None and not df_jobs.empty:
                 "Job Title": st.column_config.TextColumn("Titre du Poste", disabled=True, width="medium"),
                 "Company": st.column_config.TextColumn("Entreprise", disabled=True, width="small"),
                 "Location": st.column_config.TextColumn("Localisation", disabled=True, width="small"),
+                "Employment Type": st.column_config.TextColumn("Contrat", disabled=True, width="small"),
+                "Seniority Level": st.column_config.TextColumn("Niveau", disabled=True, width="small"),
+                "Industries": st.column_config.TextColumn("Secteur", disabled=True, width="small"),
                 "Job URL": st.column_config.LinkColumn("Lien LinkedIn", disabled=True, width="small"),
                 "Key Skills Required": st.column_config.TextColumn("Compétences Clés", disabled=True, width="medium"),
-                "Screenshot File": st.column_config.TextColumn("Fichier Capture", disabled=True, width="small"),
                 "Statut Candidature": st.column_config.SelectboxColumn(
                     "Statut Candidature",
                     options=["À postuler", "Postulé", "Entretien", "Refusé", "Offre reçue"],
@@ -389,20 +520,88 @@ if df_jobs is not None and not df_jobs.empty:
         if save_clicked:
             save_data(edited_df)
 
-    # TAB 3: SCREENSHOT VIEWER
+    # TAB 3: NATIVE ABOUT THE JOB & ABOUT THE COMPANY VIEWER
     with tab3:
-        st.subheader("🖼️ Visualiseur de Captures d'Écran")
-        st.caption("Consultez la capture d'écran pleine page de chaque offre pour relire la fiche de poste complète hors-ligne.")
+        st.subheader("📑 Fiche Détaillée : About the Job & About the Company")
+        st.caption("Consultez la fiche structurée du poste, les responsabilités, les compétences requises et le profil de l'entreprise (100% propre, sans bannières rác).")
         
-        job_options = {f"#{row['ID']} - {row['Company']} ({row['Job Title']})": row["Screenshot File"] for _, row in df_jobs.iterrows()}
+        job_options = {f"#{row['ID']} - {row['Company']} ({row['Job Title']})": row["ID"] for _, row in df_jobs.iterrows()}
         selected_job_label = st.selectbox("Sélectionnez une offre à afficher", list(job_options.keys()))
         
         if selected_job_label:
-            screenshot_path = job_options[selected_job_label]
-            if pd.notna(screenshot_path) and os.path.exists(screenshot_path):
-                st.image(screenshot_path, caption=selected_job_label, width="stretch")
+            selected_id = job_options[selected_job_label]
+            selected_job = df_jobs[df_jobs["ID"] == selected_id].iloc[0]
+            
+            # 1. Header Card with Titles and Direct Action Links
+            col_info, col_btn = st.columns([3, 2])
+            with col_info:
+                st.markdown(f"""
+                    <div class="job-title">{selected_job['Job Title']}</div>
+                    <div class="job-meta">
+                        <span class="job-meta-item">🏢 <b>Entreprise :</b> {selected_job['Company']}</span>
+                        <span class="job-meta-item">📍 <b>Lieu :</b> {selected_job['Location']}</span>
+                        <span class="job-meta-item">📌 <b>Statut :</b> {selected_job.get('Statut Candidature', 'À postuler')}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+            with col_btn:
+                st.markdown("<br>", unsafe_allow_html=True)
+                b1, b2 = st.columns(2)
+                with b1:
+                    job_url = str(selected_job.get('Job URL', ''))
+                    if job_url and job_url.startswith("http"):
+                        st.link_button("🔗 Postuler sur LinkedIn", job_url, use_container_width=True)
+                with b2:
+                    comp_url = str(selected_job.get('Company URL', ''))
+                    if comp_url and comp_url.startswith("http"):
+                        st.link_button("🏢 Page Entreprise", comp_url, use_container_width=True)
+
+            # 2. Key Criteria Metrics
+            c1, c2, c3, c4 = st.columns(4)
+            with c1:
+                st.metric("💼 Type de contrat", str(selected_job.get("Employment Type", "Alternance / CDI")))
+            with c2:
+                st.metric("🎯 Niveau d'expérience", str(selected_job.get("Seniority Level", "Non spécifié")))
+            with c3:
+                st.metric("🏭 Secteur d'activité", str(selected_job.get("Industries", "Non spécifié")))
+            with c4:
+                st.metric("📌 Statut suivi", str(selected_job.get("Statut Candidature", "À postuler")))
+
+            st.markdown("---")
+
+            # 3. Key Skills Badges
+            skills_raw = str(selected_job.get("Key Skills Required", ""))
+            if skills_raw and skills_raw != "nan":
+                skills_list = [s.strip() for s in skills_raw.split(",") if s.strip()]
+                skills_html = "".join([f'<span class="skill-pill">⚡ {s}</span>' for s in skills_list])
+                st.markdown(f"**Compétences Clés Requises ({len(skills_list)}) :**<br>{skills_html}", unsafe_allow_html=True)
             else:
-                st.warning("⚠️ Aucune capture d'écran disponible ou fichier introuvable.")
+                st.info("ℹ️ Aucune compétence spécifique détectée dans cette offre.")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # 4. About the Job (Clean Full Description)
+            st.markdown("### 📄 About the job")
+            desc_text = str(selected_job.get("Description", "")).strip()
+            if desc_text and desc_text != "nan":
+                st.markdown(f'<div class="job-desc-box">{desc_text}</div>', unsafe_allow_html=True)
+            else:
+                st.info("ℹ️ Aucune description textuelle disponible pour cette offre.")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # 5. About the Company
+            st.markdown("### 🏢 About the company")
+            comp_url_display = str(selected_job.get('Company URL', ''))
+            comp_link_html = f'<a href="{comp_url_display}" target="_blank" style="color:#0284C7; font-weight:600; text-decoration:none;">🔗 Voir le profil de l\'entreprise sur LinkedIn</a>' if comp_url_display and comp_url_display.startswith("http") else ""
+            st.markdown(f"""
+                <div class="metric-card" style="border-left-color: #0284C7; background: #F8FAFC;">
+                    <h4 style="margin-top:0; color: #0F172A; font-size: 1.25rem;">🏢 {selected_job['Company']}</h4>
+                    <p style="margin-bottom: 6px; color: #475569;"><b>📍 Siège / Localisation :</b> {selected_job['Location']}</p>
+                    <p style="margin-bottom: 6px; color: #475569;"><b>🏭 Secteur d'activité :</b> {selected_job.get('Industries', 'Non spécifié')}</p>
+                    <p style="margin-bottom: 8px; color: #475569;"><b>💼 Type de recrutement :</b> {selected_job.get('Employment Type', 'Alternance / CDI')}</p>
+                    {comp_link_html}
+                </div>
+            """, unsafe_allow_html=True)
 
 else:
     st.info("💡 Aucune donnée disponible pour le moment. Veuillez configurer vos mots-clés dans la barre latérale và cliquer sur **'Lancer la collecte'**.")
