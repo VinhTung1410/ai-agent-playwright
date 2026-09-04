@@ -399,6 +399,8 @@ def scrape_linkedin(keywords="alternance business analyst", location="France", m
                         try:
                             show_more.click(timeout=600)
                             page.wait_for_timeout(200)
+                        except Exception:
+                            pass
                     try:
                         description = desc_sel.first.inner_text().strip()
                     except Exception:

@@ -1,4 +1,5 @@
 import os
+import sys
 import time
 import subprocess
 import pandas as pd
@@ -6,8 +7,22 @@ import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
 
-from scraper import scrape_linkedin, process_and_export, format_job_description
-from cv_matcher import extract_text_from_pdf, analyze_cv_skills, compute_job_match, rank_all_jobs_for_cv
+# Add src and project root to sys.path for robust imports across all platforms
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+for p in [CURRENT_DIR, ROOT_DIR]:
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
+try:
+    from scraper import scrape_linkedin, process_and_export, format_job_description
+except ImportError:
+    from src.scraper import scrape_linkedin, process_and_export, format_job_description
+
+try:
+    from cv_matcher import extract_text_from_pdf, analyze_cv_skills, compute_job_match, rank_all_jobs_for_cv
+except ImportError:
+    from src.cv_matcher import extract_text_from_pdf, analyze_cv_skills, compute_job_match, rank_all_jobs_for_cv
 
 # Page configuration
 st.set_page_config(
