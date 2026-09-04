@@ -1,0 +1,74 @@
+%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj
+4 0 obj << /Length 1670 >>
+stream
+BT
+/F1 11 Tf
+50 750 Td
+15 TL
+(Lucas Martin - Business Analyst Alternant \(Master SI & Data\)) Tj
+T*
+(Email: lucas.martin@example.com | Tel: +33 6 88 77 66 55 | Paris, France) Tj
+T*
+(--------------------------------------------------------------------------------) Tj
+T*
+(PROFIL PROFESSIONNEL) Tj
+T*
+(Etudiant rigoureux recherchant un contrat d'alternance de 12 a 24 mois en tant que) Tj
+T*
+(Business Analyst ou Product Owner Junior. Solides competences en analyse de donnees,) Tj
+T*
+(recueil des besoins utilisateurs et pilotage de sprint en environnement Agile.) Tj
+T*
+() Tj
+T*
+(COMPETENCES TECHNIQUES & METHODOLOGIQUES) Tj
+T*
+(- Outils Decisionnels: SQL, Power BI, Excel avance \(VBA, Power Query\), Jira, Confluence) Tj
+T*
+(- Langages: Python \(Pandas, Numpy\), SQL requetage relationnel) Tj
+T*
+(- Methodologies: Agile, Scrum, Recueil des besoins, Cahier des charges, User stories) Tj
+T*
+(- Soft Skills: Gestion des parties prenantes, Esprit d'analyse, Resolution de problemes) Tj
+T*
+(- Langues: Francais \(Natif\), Anglais \(Courant / C1 professionnel\)) Tj
+T*
+() Tj
+T*
+(EXPERIENCES PROFESSIONNELLES) Tj
+T*
+(Stage Junior Business Analyst \(6 mois\) - Retail Solutions) Tj
+T*
+(- Animation d'ateliers de recueil des besoins avec les equipes metier et techniques.) Tj
+T*
+(- Redaction des specifications fonctionnelles et user stories sous Jira.) Tj
+T*
+(- Conception et deploiement de tableaux de bord Power BI connectes a une base SQL.) Tj
+T*
+() Tj
+T*
+(PROJETS ACADEMIQUES) Tj
+T*
+(- Projet ERP & Digitalisation: Modelisation des processus metier et diagrammes de flux.) Tj
+T*
+(- Dashboard Sales Analytics: Analyse de ventes sur Python et restitution visuelle.) Tj
+T*
+ET
+endstream
+endobj
+5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj
+xref
+0 6
+0000000000 65535 f 
+0000000010 00000 n 
+0000000060 00000 n 
+0000000117 00000 n 
+0000000240 00000 n 
+0000000450 00000 n 
+trailer << /Size 6 /Root 1 0 R >>
+startxref
+550
+%%EOF

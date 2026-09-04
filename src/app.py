@@ -7,6 +7,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 from scraper import scrape_linkedin, process_and_export
+from cv_matcher import extract_text_from_pdf, analyze_cv_skills, compute_job_match, rank_all_jobs_for_cv
 
 # Page configuration
 st.set_page_config(
@@ -122,6 +123,68 @@ st.markdown("""
         max-height: 420px;
         overflow-y: auto;
         white-space: pre-line;
+    }
+    .score-badge-green {
+        background-color: #DCFCE7;
+        color: #166534;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        display: inline-block;
+    }
+    .score-badge-orange {
+        background-color: #FEF3C7;
+        color: #92400E;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        display: inline-block;
+    }
+    .score-badge-red {
+        background-color: #FEE2E2;
+        color: #991B1B;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        display: inline-block;
+    }
+    .rec-box {
+        background: #F8FAFC;
+        border-left: 4px solid #0284C7;
+        padding: 14px 16px;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        font-size: 0.95rem;
+        line-height: 1.6;
+        color: #1E293B;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    .skill-matched-pill {
+        display: inline-block;
+        background: #DCFCE7;
+        color: #166534;
+        border: 1px solid #BBF7D0;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-right: 6px;
+        margin-bottom: 6px;
+    }
+    .skill-missing-pill {
+        display: inline-block;
+        background: #FEE2E2;
+        color: #991B1B;
+        border: 1px solid #FECACA;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-right: 6px;
+        margin-bottom: 6px;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -303,10 +366,11 @@ if df_jobs is not None and not df_jobs.empty:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # Tabs for Rich Dashboard Navigation
-    tab1, tab2, tab3 = st.tabs([
+    tab1, tab2, tab3, tab4 = st.tabs([
         "📊 Tableaux de Bord & Visualisations",
         "📋 Suivi des Candidatures",
-        "📑 Fiche de Poste & Captures d'Écran"
+        "📑 Fiche de Poste & Détails",
+        "🎯 Évaluation du CV & Matching"
     ])
 
     # TAB 1: VISUAL ANALYTICS
@@ -602,6 +666,177 @@ if df_jobs is not None and not df_jobs.empty:
                     {comp_link_html}
                 </div>
             """, unsafe_allow_html=True)
+
+    # TAB 4: CV MATCHING & TAILORED RECOMMENDATIONS
+    with tab4:
+        st.subheader("🎯 Évaluation de Compatibilité CV (PDF) & Conseils d'Optimisation")
+        st.caption("Déposez votre CV au format PDF pour analyser vos compétences, comparer votre profil à chaque offre d'emploi collectée et recevoir des conseils concrets pour maximiser vos chances d'entretien.")
+
+        uploaded_cv = st.file_uploader("📄 Téléverser votre CV (Format PDF)", type=["pdf"], key="cv_pdf_uploader")
+
+        if uploaded_cv is not None:
+            with st.spinner("Analyse du CV en cours..."):
+                cv_text = extract_text_from_pdf(uploaded_cv)
+                cv_analysis = analyze_cv_skills(cv_text)
+                cv_skills = cv_analysis["skills"]
+
+            if not cv_text:
+                st.warning("⚠️ Impossible d'extraire le texte de ce fichier PDF. Vérifiez qu'il ne s'agit pas d'un document scanné sous forme d'image sans couche texte OCR.")
+            else:
+                # 1. Candidate Skills Summary Card
+                st.markdown("### 👤 Profil Candidat Détecté")
+                c1, c2, c3, c4 = st.columns(4)
+                with c1:
+                    st.metric("Total Compétences", len(cv_skills))
+                with c2:
+                    st.metric("Outils Techniques", len(cv_analysis["categories"].get("Outil Technique / Logiciel", [])))
+                with c3:
+                    st.metric("Méthodologies", len(cv_analysis["categories"].get("Méthodologie / Framework", [])))
+                with c4:
+                    st.metric("Langues", len(cv_analysis["categories"].get("Langue", [])))
+
+                if cv_skills:
+                    pills_html = "".join([f'<span class="skill-pill">⚡ {s}</span>' for s in cv_skills])
+                    st.markdown(f"**Compétences repérées dans votre CV :**<br>{pills_html}", unsafe_allow_html=True)
+                else:
+                    st.info("ℹ️ Aucune compétence Business Analyst spécifique n'a été repérée directement dans votre CV. Vous pouvez consulter les offres ci-dessous pour voir les mots-clés prioritaires à ajouter.")
+
+                st.markdown("---")
+
+                # 2. Ranking Leaderboard
+                st.markdown("### 🏆 Classement des Offres par Compatibilité")
+                ranked_jobs = rank_all_jobs_for_cv(cv_skills, df_jobs.to_dict(orient="records"))
+
+                if ranked_jobs:
+                    top_match = ranked_jobs[0]
+                    badge_class = "score-badge-green" if top_match["Score"] >= 75 else ("score-badge-orange" if top_match["Score"] >= 50 else "score-badge-red")
+                    st.markdown(f"""
+                        <div class="metric-card" style="border-left-color: #10B981; margin-bottom: 1.2rem;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                <div>
+                                    <span style="font-size: 0.85rem; color: #059669; font-weight: 700; text-transform: uppercase;">🥇 Offre la plus compatible</span>
+                                    <h4 style="margin: 4px 0; color: #0F172A;">{top_match['Title']} — {top_match['Company']}</h4>
+                                    <span style="color: #64748B; font-size: 0.9rem;">📍 {top_match['Location']} | Compétences alignées : {top_match['Matched Skills'] or 'Général'}</span>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span class="{badge_class}" style="font-size: 1.25rem;">{top_match['Score']}%</span>
+                                    <div style="font-size: 0.82rem; color: #64748B; margin-top: 4px;">{top_match['Match Level']}</div>
+                                </div>
+                            </div>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    # Summary dataframe view
+                    df_ranked_view = pd.DataFrame([
+                        {
+                            "Score (%)": r["Score"],
+                            "Compatibilité": r["Match Level"],
+                            "Offre": f"{r['Title']} ({r['Company']})",
+                            "Lieu": r["Location"],
+                            "Compétences Validées": r["Matched Count"],
+                            "Compétences Manquantes": r["Missing Count"],
+                            "Mots-clés en commun": r["Matched Skills"],
+                            "Mots-clés à ajouter": r["Missing Skills"],
+                            "Lien": r["Job URL"]
+                        }
+                        for r in ranked_jobs
+                    ])
+
+                    st.dataframe(
+                        df_ranked_view,
+                        column_config={
+                            "Score (%)": st.column_config.ProgressColumn(
+                                "Score (%)",
+                                format="%d%%",
+                                min_value=0,
+                                max_value=100,
+                                width="small"
+                            ),
+                            "Compatibilité": st.column_config.TextColumn("Niveau", width="medium"),
+                            "Offre": st.column_config.TextColumn("Poste & Entreprise", width="medium"),
+                            "Lieu": st.column_config.TextColumn("Lieu", width="small"),
+                            "Compétences Validées": st.column_config.NumberColumn("✅ Match", width="small"),
+                            "Compétences Manquantes": st.column_config.NumberColumn("⚠️ Écart", width="small"),
+                            "Mots-clés en commun": st.column_config.TextColumn("Compétences Validées", width="medium"),
+                            "Mots-clés à ajouter": st.column_config.TextColumn("Compétences Manquantes", width="medium"),
+                            "Lien": st.column_config.LinkColumn("Lien", width="small")
+                        },
+                        use_container_width=True,
+                        hide_index=True
+                    )
+
+                    st.markdown("---")
+
+                    # 3. Deep-Dive Inspection & Personalized Recommendations
+                    st.markdown("### 🔍 Analyse Approfondie & Conseils par Offre")
+                    job_select_options = {f"#{r['Job ID']} - {r['Company']} ({r['Title']}) [Score: {r['Score']}%]": r for r in ranked_jobs}
+                    selected_opt = st.selectbox("Choisissez une offre pour voir l'analyse détaillée et les recommandations", list(job_select_options.keys()))
+
+                    if selected_opt:
+                        target_job = job_select_options[selected_opt]
+                        job_raw = target_job["raw_job"]
+
+                        # Recompute match details for selected job
+                        raw_skills = job_raw.get("Key Skills Required", job_raw.get("Extracted Skills", ""))
+                        if isinstance(raw_skills, list):
+                            j_skills = raw_skills
+                        elif isinstance(raw_skills, str) and raw_skills.strip():
+                            j_skills = [s.strip() for s in raw_skills.split(",") if s.strip()]
+                        else:
+                            j_skills = []
+
+                        match_info = compute_job_match(cv_skills, j_skills, job_raw)
+
+                        # Score Card
+                        score_col1, score_col2 = st.columns([1, 2])
+                        with score_col1:
+                            score_val = match_info["score"]
+                            badge_color = "#10B981" if score_val >= 75 else ("#F59E0B" if score_val >= 50 else "#EF4444")
+                            st.markdown(f"""
+                                <div class="metric-card" style="border-left-color: {badge_color}; text-align: center;">
+                                    <div style="font-size: 2.8rem; font-weight: 800; color: {badge_color}; line-height: 1;">{score_val}%</div>
+                                    <div style="font-weight: 600; color: #1E293B; margin-top: 6px;">{match_info['match_level']}</div>
+                                    <div style="font-size: 0.85rem; color: #64748B; margin-top: 4px;">{len(match_info['matched_skills'])} validées / {len(j_skills)} requises</div>
+                                </div>
+                            """, unsafe_allow_html=True)
+
+                        with score_col2:
+                            st.markdown(f"#### 🏢 {job_raw.get('Job Title', job_raw.get('Title', ''))} — {job_raw.get('Company', '')}")
+                            st.markdown(f"📍 **Lieu :** {job_raw.get('Location', '')} | 💼 **Contrat :** {job_raw.get('Employment Type', 'Non spécifié')}")
+                            job_url = str(job_raw.get('Job URL', ''))
+                            if job_url and job_url.startswith("http"):
+                                st.link_button("🔗 Voir l'offre originale sur LinkedIn", job_url)
+
+                        st.markdown("<br>", unsafe_allow_html=True)
+
+                        # Comparison Columns: Matched vs Missing
+                        m_col1, m_col2 = st.columns(2)
+                        with m_col1:
+                            st.markdown(f"#### ✅ Vos Points Forts ({len(match_info['matched_skills'])})")
+                            if match_info["matched_skills"]:
+                                pills_matched = "".join([f'<span class="skill-matched-pill">✓ {s}</span>' for s in match_info["matched_skills"]])
+                                st.markdown(f"{pills_matched}", unsafe_allow_html=True)
+                                st.caption("Ces compétences correspondent exactement aux attentes de l'offre. Valorisez-les dans vos expériences !")
+                            else:
+                                st.info("Aucune compétence commune explicite détectée.")
+
+                        with m_col2:
+                            st.markdown(f"#### ⚠️ Compétences à Renforcer ({len(match_info['missing_skills'])})")
+                            if match_info["missing_skills"]:
+                                pills_missing = "".join([f'<span class="skill-missing-pill">✕ {s}</span>' for s in match_info["missing_skills"]])
+                                st.markdown(f"{pills_missing}", unsafe_allow_html=True)
+                                st.caption("Mots-clés recherchés par le recruteur mais non détectés dans votre CV.")
+                            else:
+                                st.success("🎉 Aucune compétence manquante ! Votre profil est complet pour ce poste.")
+
+                        st.markdown("<br>", unsafe_allow_html=True)
+
+                        # Actionable Recommendations Box
+                        st.markdown("### 💡 Plan d'Action & Conseils pour Adapter Votre CV")
+                        for rec in match_info["recommendations"]:
+                            st.markdown(f'<div class="rec-box">{rec}</div>', unsafe_allow_html=True)
+        else:
+            st.info("👆 Veuillez importer votre CV au format PDF ci-dessus pour lancer l'évaluation automatique et obtenir vos recommandations personnalisées.")
 
 else:
     st.info("💡 Aucune donnée disponible pour le moment. Veuillez configurer vos mots-clés dans la barre latérale và cliquer sur **'Lancer la collecte'**.")
