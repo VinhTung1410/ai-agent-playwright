@@ -127,6 +127,65 @@ def extract_skills_from_text(text):
             extracted.append(skill_name)
     return extracted
 
+def format_job_description(text: str) -> str:
+    """
+    Formate proprement le texte de description d'une offre d'emploi en rétablissant
+    les sauts de ligne, les sous-titres et les listes à puces.
+    """
+    if not text:
+        return ""
+    
+    formatted = str(text)
+    
+    # Titres de sections fréquents dans les offres françaises et internationales
+    headers = [
+        "Description de l'entreprise",
+        "Description du poste",
+        "Votre Mission",
+        "Vos missions",
+        "Missions principales",
+        "Missions du poste",
+        "Votre rôle",
+        "Profil recherché",
+        "Votre profil",
+        "Compétences requises",
+        "Prérequis",
+        "Ce que nous offrons",
+        "Ce que nous proposons",
+        "Avantages",
+        "Notre ambition",
+        "À propos de l'entreprise",
+        "About the job",
+        "About the role",
+        "About us",
+        "Role Responsibilities",
+        "Responsibilities",
+        "Requirements",
+        "Qualifications",
+        "What you will do",
+        "What we offer",
+        "Modalités"
+    ]
+    
+    # 1. Détacher les en-têtes collés aux phrases précédentes ou suivantes
+    for h in headers:
+        pat = re.compile(rf'(?:^|([^\n]))\s*({re.escape(h)})\s*([A-ZÀ-Ÿ0-9:])', re.IGNORECASE)
+        formatted = pat.sub(lambda m: f"{(m.group(1) or '')}\n\n#### 📌 {m.group(2)}\n\n{m.group(3)}", formatted)
+        
+        pat_line = re.compile(rf'(?:^|\n)\s*({re.escape(h)})\s*:', re.IGNORECASE)
+        formatted = pat_line.sub(r'\n\n#### 📌 \1\n\n', formatted)
+
+    # 2. Insérer des sauts de ligne après la ponctuation collée aux majuscules suivantes (ex: "pays.Ici, nous")
+    formatted = re.sub(r'([.!?])\s*([A-ZÀ-Ÿ][a-zà-ÿ])', r'\1\n\n\2', formatted)
+    
+    # 3. Mettre à la ligne les puces de listes (•, -, *)
+    formatted = re.sub(r'([^\n])\s*([•\-\*]\s+)', r'\1\n\n- ', formatted)
+    
+    # 4. Éviter l'accumulation excessive de lignes vides
+    formatted = re.sub(r'\n{3,}', '\n\n', formatted)
+    
+    return formatted.strip()
+
 def scrape_linkedin(keywords="alternance business analyst", location="France", max_jobs=10, progress_callback=None):
     os.makedirs("output/screenshots", exist_ok=True)
 
@@ -340,9 +399,12 @@ def scrape_linkedin(keywords="alternance business analyst", location="France", m
                         try:
                             show_more.click(timeout=600)
                             page.wait_for_timeout(200)
-                        except Exception:
-                            pass
-                    description = desc_sel.first.text_content().strip()
+                    try:
+                        description = desc_sel.first.inner_text().strip()
+                    except Exception:
+                        description = desc_sel.first.text_content().strip()
+                    
+                    description = format_job_description(description)
 
                 # Skills
                 skills_required = extract_skills_from_text(description)
