@@ -1,23 +1,34 @@
 # LinkedIn Business Analyst Alternance Scraper & Analyzer (France)
 
-Ce projet est un outil d'automatisation en Python permettant de collecter, d'analyser et de consolider les offres d'alternance pour les rôles de **Business Analyst** en France publiées au cours des dernières 24 heures sur LinkedIn.
+Ce projet est un outil d'automatisation haute performance en Python permettant de collecter, d'analyser et de consolider les offres d'alternance pour les rôles de **Business Analyst** en France publiées au cours des dernières 24 heures sur LinkedIn.
 
 ---
 
-## 🌟 Fonctionnalités
+## 🌟 Fonctionnalités Principales
 
-1. **Recherche automatique** : Recherche les offres avec les mots-clés `alternance business analyst` en France publiées dans les dernières 24 heures.
-2. **Extraction intelligente & Capture d'écran** :
-   - Extrait les informations clés : Titre du poste, Entreprise, Localisation, URL directe, Description complète.
-   - Capture automatiquement une capture d'écran pleine page de chaque offre sous `output/screenshots/`.
-   - Contourne les fenêtres contextuelles de connexion LinkedIn en injectant des styles CSS personnalisés en arrière-plan.
-3. **Analyse des compétences (en Français)** :
-   - Analyse la description pour extraire les outils techniques (SQL, Excel, Jira...), les méthodologies (Agile, Scrum...), les soft skills et les exigences linguistiques.
-   - Normalise et déduplique les noms des compétences.
-4. **Rapport Excel structuré** : Génère un fichier Excel `output/LinkedIn_BA_France_Report.xlsx` contenant :
-   - Onglet **Job Listings** : Liste détaillée des offres avec liens vers les captures d'écran et colonnes de suivi des candidatures.
-   - Onglet **Top Skills Ranking** : Classement par fréquence des compétences requises.
-5. **Dashboard Web Interactif (Streamlit)** : Interface graphique complète pour lancer la collecte, suivre l'avancement, éditer les candidatures en direct et visualiser les métriques.
+1. **Recherche automatique ciblée** : Recherche les offres avec les mots-clés configurables (par défaut : `alternance business analyst`) en France publiées dans les dernières 24 heures (`f_TPR=r86400`).
+2. **Moteur d'extraction ultra-rapide (Scraper Haute Performance)** :
+   - Temps d'extraction considérablement optimisé : **10 offres traitées en ~15 à 30 secondes** (contre plus de 150 secondes auparavant).
+   - Interception intelligente des requêtes réseau : blocage des médias, images, balises de télémétrie et polices superflues tout en conservant les feuilles de style CSS.
+   - Cycle de vie de page optimisé avec `domcontentloaded` et sélecteurs synchronisés.
+   - Contournement automatique des fenêtres contextuelles de connexion LinkedIn (authwall/modal) par injection dynamique de CSS dans le DOM.
+3. **Fiche détaillée du poste & de l'entreprise (Native Job & Company Viewer)** :
+   - Remplacement complet des anciennes captures d'écran (souvent sujettes aux bannières de cookies ou aux problèmes de police) par une fiche textuelle structurée et moderne directement dans Streamlit.
+   - Extraction des sections clés : **About the job** (description intégrale du poste), **About the company** (présentation de l'entreprise), Type de contrat (*Employment type*), Niveau hiérarchique (*Seniority level*), Secteur d'activité (*Industries*), Liens directs LinkedIn et entreprise.
+4. **Analyse avancée des compétences (Taxonomie Française)** :
+   - Détection et normalisation bilingue (Français/Anglais) des compétences requises : Outils techniques (SQL, Power BI, Python, Jira...), Méthodologies (Agile, Scrum, Cycle en V...), Compétences professionnelles (Recueil des besoins, User stories...) et Langues.
+5. **Tableaux de bord visuels interactifs (Plotly)** :
+   - Affichage direct des ratios et pourcentages sous la forme `X/Total (Y%)` sur chaque barre horizontale.
+   - Suppression des infobulles noires superflues (`hoverinfo='skip'`) et masquage de la barre d'outils flottante pour une interface épurée et sans chevauchement.
+   - Graphiques de répartition par catégorie, top entreprises qui recrutent et localisation géographique.
+6. **Rapport Excel structuré & Suivi des candidatures** :
+   - Fichier généré automatiquement : `output/LinkedIn_BA_France_Report.xlsx`.
+   - Onglet **Job Listings** : Tableau complet avec listes déroulantes de validation (*À postuler, Postulé, Entretien, Refusé, Offre reçue*), champs de suivi (date, contact, remarques) et hyperliens directs.
+   - Onglet **Top Skills Ranking** : Classement par ordre de fréquence et taux d'apparition de chaque compétence.
+7. **Dashboard Web Interactif (Streamlit)** :
+   - Barre de progression en temps réel avec calcul précis du temps restant estimé (ETA).
+   - Éditeur interactif en direct (`st.data_editor`) avec sauvegarde instantanée dans le fichier Excel.
+   - Bouton de téléchargement direct du rapport Excel sans quitter le navigateur.
 
 ---
 
@@ -25,15 +36,19 @@ Ce projet est un outil d'automatisation en Python permettant de collecter, d'ana
 
 ### Prérequis
 - **Python 3.11+**
-- Moteur de navigateur **Chromium** (géré automatiquement via Playwright).
+- Moteur de navigateur **Chromium** (installé et géré automatiquement via Playwright).
 
 ### 1. Installation des dépendances
 
 ```powershell
-# Cloner le dépôt et naviguer dans le dossier
-cd "AI Agent"
+# Cloner le dépôt et se placer dans le dossier
+cd "Linkedin app"
 
-# Installation des dépendances Python dans l'environnement virtuel (.venv)
+# Créer un environnement virtuel (si ce n'est pas déjà fait)
+python -m venv .venv
+
+# Installation des dépendances Python
+.\.venv\Scripts\python.exe -m pip install -U pip
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 
 # Installation du navigateur Chromium pour Playwright
@@ -46,16 +61,12 @@ cd "AI Agent"
 
 #### Option A : Lancer le Dashboard Web Streamlit (Recommandé)
 
-Sous Windows PowerShell, utilisez l'une des commandes suivantes pour éviter les erreurs de PATH :
+Sous Windows PowerShell, lancez directement l'interface web :
 
 ```powershell
-# Méthode 1 : Lancement direct via le module Python de .venv (Recommandé)
 .\.venv\Scripts\python.exe -m streamlit run src/app.py
-
-# Méthode 2 : Activation préalable de l'environnement virtuel
-.\.venv\Scripts\Activate.ps1
-streamlit run src/app.py
 ```
+*(Le navigateur s'ouvrira automatiquement à l'adresse `http://localhost:8501`)*
 
 #### Option B : Lancer le Scraper en ligne de commande (CLI)
 
@@ -65,42 +76,46 @@ streamlit run src/app.py
 
 ---
 
-## 🖥️ Dashboard Web Interactif (Streamlit)
+## 🖥️ Organisation du Dashboard Web (Streamlit)
 
-Le dashboard permet une expérience utilisateur fluide et dynamique :
+Le dashboard est articulé autour de 3 onglets thématiques :
 
-- **Recherche personnalisée** : Saisissez vos mots-clés (ex: `Alternance Product Owner`) et votre localisation directement dans le panneau latéral.
-- **Suivi éditable en direct** : Modifiez le statut de vos candidatures, ajoutez des remarques ou des dates d'entretien directement depuis le tableau, puis sauvegardez.
-- **Visualiseur d'images** : Visualisez l'image complète de l'offre d'emploi d'un simple clic.
-- **Statistiques des compétences** : Graphique en barres des 15 compétences les plus demandées.
+- **Onglet 1 : 📊 Tableaux de Bord & Visualisations (Plotly)** :
+  - *Top 15 Compétences* avec étiquettes claires de proportion (ex: `5/6 (83.3%)`).
+  - Répartition circulaire par famille de compétences.
+  - Classement des entreprises et répartition géographique.
+- **Onglet 2 : 📋 Suivi des Candidatures (Application Tracker)** :
+  - Modification directe du statut des candidatures, des notes et contacts.
+  - Bouton de sauvegarde vers le fichier Excel.
+  - Bouton de téléchargement immédiat du fichier `.xlsx`.
+- **Onglet 3 : 🏢 Détails du Poste & Entreprise (Job & Company Details)** :
+  - Sélection de l'offre pour consultation directe des sections *About the job*, *About the company*, critères de séniorité et types d'emploi.
 
 ---
 
 ## 📜 Historique des Versions (Changelog)
 
 ### 📌 v1.0.3 (Sprint 4) - *UX/UI Enhancement, Visual Analytics & Search Performance Optimization*
-- **Contrôle dynamique du volume de recherche** : Ajout d'un curseur (*Slider*) pour sélectionner le nombre d'offres ciblées (Min: 6, Max: 30, Défaut: 10) afin de maîtriser le temps de réponse et éviter les blocages LinkedIn.
-- **Barre de progression en temps réel & ETA** : Affichage d'un retour visuel étape par étape avec calcul d'ETA et état d'avancement pour chaque offre en cours d'extraction.
-- **Tableaux de bord visuels interactifs (Plotly)** :
-  - *Top 15 Compétences* colorées par catégorie (Outil Technique, Méthodologie, Soft Skills, Langues).
-  - *Diagramme circulaire* de répartition des catégories de compétences.
-  - *Top Entreprises qui recrutent* et *Répartition géographique* des opportunités.
-- **Téléchargement direct du rapport Excel** : Bouton d'export direct `.xlsx` intégré dans l'interface pour récupérer le rapport sans naviguer dans l'arborescence des dossiers.
-- **Optimisation des performances du scraper** : Réduction intelligente du nombre de défilements selon le volume demandé et ajustement des délais de chargement.
+- **Accélération majeure du scraper** : Réduction du temps de collecte de ~150s à **~15-30s pour 10 offres** grâce au filtrage réseau (blocage des traqueurs/images/balises) et à l'exploitation de l'événement `domcontentloaded`.
+- **Fiche native du poste & de l'entreprise** : Remplacement du visualiseur de captures d'écran par un composant d'affichage textuel complet et stylisé (About the job, About the company, Employment type, Seniority level, Industries).
+- **Perfectionnement des graphiques Plotly** :
+  - Affichage direct du format `X/Total (Y%)` sur chaque barre.
+  - Suppression de l'infobulle noire au survol (`hoverinfo='skip'`).
+  - Masquage de la barre d'outils superposée aux titres (`displayModeBar: False`).
+- **Curseur de sélection du volume & ETA dynamique** : Contrôle du nombre d'offres ciblées (6 à 30 offres) avec estimation précise du temps de complétion.
+- **Export direct Excel** : Téléchargement du fichier de rapport en un clic depuis l'interface utilisateur.
 
 ### 📌 v1.0.2 (Sprint 3) - *Streamlit Cloud Deployment & Chromium Refactor*
-- **Compatibilité Streamlit Cloud** : Résolution des problèmes de permissions `sudo` lors de l'installation des navigateurs Playwright dans les conteneurs.
-- **Standardisation Chromium** : Remplacement de Microsoft Edge par le navigateur Chromium standard (exécution automatique en mode headless sur Linux/Cloud et headful en local).
-- **Configuration packages.txt** : Ajout de toutes les bibliothèques système Linux requises (`libnss3`, `libgbm1`, `libxfixes3`...) pour exécuter Chromium de manière optimale sur le serveur.
-- **Mise à jour de la documentation** : Ajout des instructions détaillées pour exécuter Streamlit en local via `.venv\Scripts\python.exe -m streamlit run src/app.py`.
+- **Compatibilité Streamlit Cloud** : Résolution des dépendances système via `packages.txt` (Debian Linux).
+- **Standardisation Chromium** : Exécution automatique en mode headless ou headful selon l'environnement.
+- **Auto-installation Playwright** : Détection et installation transparente du binaire Chromium si absent.
 
 ### 📌 v1.0.1 (Sprint 2) - *Logging, Metadata & Application Tracking*
-- **Intégration du suivi des candidatures** : Ajout des colonnes de suivi (*Statut Candidature*, *Date Candidature*, *Contact Recruteur*, *Notes & Remarques*) dans les rapports Excel.
-- **Système de journalisation** : Ajout d'un système de logs structuré pour suivre l'exécution du navigateur (`logs/browser.log`).
-- **Dashboard Streamlit** : Configuration initiale du tableau interactif avec `st.data_editor`.
+- **Suivi des candidatures** : Ajout des colonnes de gestion d'avancement des candidatures dans Excel et dans l'interface.
+- **Journalisation structurée** : Enregistrement des événements de navigation dans `logs/browser.log`.
+- **Éditeur de données en direct** : Intégration de `st.data_editor` pour la mise à jour des statuts.
 
 ### 📌 v1.0.0 (Sprint 1) - *Browser Automation & Core Scraper*
-- **Scraper automatisé** : Développement du scraper LinkedIn avec Playwright.
-- **Captures d'écran pleine page** : Intégration de la capture d'écran automatique avec masquage des modales de connexion via injection CSS.
-- **Moteur d'extraction des compétences** : Développement du système d'extraction basé sur une taxonomie de compétences en français.
-- **Exportation Excel** : Génération automatique du rapport Excel structuré avec liens cliquables et validations de données.
+- **Scraper initial Playwright** : Collecte des offres LinkedIn et contournement des modales de connexion.
+- **Moteur d'extraction de compétences** : Dictionnaire de mots-clés BA en français.
+- **Export Excel automatisé** : Mise en forme avancée avec en-têtes корпораatifs et validation des données.
