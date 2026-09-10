@@ -19,11 +19,6 @@ try:
 except ImportError:
     from src.scraper import scrape_linkedin, process_and_export, format_job_description
 
-try:
-    from cv_matcher import extract_text_from_pdf, analyze_cv_skills, compute_job_match, rank_all_jobs_for_cv
-except ImportError:
-    from src.cv_matcher import extract_text_from_pdf, analyze_cv_skills, compute_job_match, rank_all_jobs_for_cv
-
 # Page configuration
 st.set_page_config(
     page_title="LinkedIn Job Search & Application Tracker",
