@@ -16,8 +16,10 @@ for p in [CURRENT_DIR, ROOT_DIR]:
 
 try:
     from scraper import scrape_linkedin, process_and_export, format_job_description
+    from cv_matcher import extract_text_from_pdf, analyze_cv_skills, compute_job_match, rank_all_jobs_for_cv
 except ImportError:
     from src.scraper import scrape_linkedin, process_and_export, format_job_description
+    from src.cv_matcher import extract_text_from_pdf, analyze_cv_skills, compute_job_match, rank_all_jobs_for_cv
 
 # Page configuration
 st.set_page_config(
@@ -684,11 +686,26 @@ if df_jobs is not None and not df_jobs.empty:
         st.subheader("🎯 Évaluation de Compatibilité CV (PDF) & Conseils d'Optimisation")
         st.caption("Déposez votre CV au format PDF pour analyser vos compétences, comparer votre profil à chaque offre d'emploi collectée et recevoir des conseils concrets pour maximiser vos chances d'entretien.")
 
-        uploaded_cv = st.file_uploader("📄 Téléverser votre CV (Format PDF)", type=["pdf"], key="cv_pdf_uploader")
+        col_up, col_sample = st.columns([3, 1])
+        with col_up:
+            uploaded_cv = st.file_uploader("📄 Téléverser votre CV (Format PDF)", type=["pdf"], key="cv_pdf_uploader")
+        with col_sample:
+            st.write("")
+            st.write("")
+            sample_pdf_path = os.path.join(ROOT_DIR, "output", "sample_cv_lucas_martin.pdf")
+            use_sample = st.button("🧪 CV Exemple (Lucas Martin)", help="Tester instantanément avec le profil Business Analyst exemple", use_container_width=True)
+            if use_sample and os.path.exists(sample_pdf_path):
+                with open(sample_pdf_path, "rb") as f:
+                    st.session_state["sample_cv_bytes"] = f.read()
 
-        if uploaded_cv is not None:
+        cv_source = uploaded_cv
+        if cv_source is None and st.session_state.get("sample_cv_bytes"):
+            cv_source = st.session_state["sample_cv_bytes"]
+            st.info("ℹ️ Évaluation en cours avec le CV exemple : **Lucas Martin** (Business Analyst / Product Owner)")
+
+        if cv_source is not None:
             with st.spinner("Analyse du CV en cours..."):
-                cv_text = extract_text_from_pdf(uploaded_cv)
+                cv_text = extract_text_from_pdf(cv_source)
                 cv_analysis = analyze_cv_skills(cv_text)
                 cv_skills = cv_analysis["skills"]
 
