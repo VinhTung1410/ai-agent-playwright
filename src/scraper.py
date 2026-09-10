@@ -1,6 +1,7 @@
 import os
 import re
 import time
+import random
 import logging
 import pandas as pd
 from urllib.parse import urlparse
@@ -280,23 +281,61 @@ def scrape_linkedin(keywords="alternance business analyst", location="France", m
             logger.warning(f"Timeout waiting for job cards: {e}")
             safe_screenshot(page, "output/screenshots/search_page_error.png")
 
-        # Initial check for job card links
-        def get_current_card_urls():
-            found_urls = []
-            cards = page.locator("a.base-card__full-link, a.job-search-card__image-link").all()
-            for card in cards:
-                href = card.get_attribute("href")
-                if href:
+        # Initial check for job cards with rich metadata
+        def get_current_cards():
+            found = []
+            seen_urls = set()
+            
+            # 1. Try structured search cards (contains real title, company, location)
+            card_nodes = page.locator(".base-card, .base-search-card, .job-search-card").all()
+            for card in card_nodes:
+                try:
+                    link_el = card.locator("a.base-card__full-link, a.job-search-card__image-link").first
+                    if link_el.count() == 0:
+                        continue
+                    href = link_el.get_attribute("href") or ""
                     clean_url = href.split("?")[0]
-                    if clean_url not in found_urls:
-                        found_urls.append(clean_url)
-            return found_urls
+                    if not clean_url or clean_url in seen_urls:
+                        continue
+                    seen_urls.add(clean_url)
 
-        raw_urls = get_current_card_urls()
+                    t_el = card.locator(".base-search-card__title").first
+                    c_el = card.locator(".base-search-card__subtitle").first
+                    l_el = card.locator(".job-search-card__location").first
+
+                    found.append({
+                        "url": clean_url,
+                        "title": t_el.text_content().strip() if t_el.count() > 0 else "",
+                        "company": c_el.text_content().strip() if c_el.count() > 0 else "",
+                        "location": l_el.text_content().strip() if l_el.count() > 0 else ""
+                    })
+                except Exception:
+                    pass
+
+            # 2. Fallback for any standalone job links
+            all_links = page.locator("a.base-card__full-link, a.job-search-card__image-link").all()
+            for link in all_links:
+                try:
+                    href = link.get_attribute("href") or ""
+                    clean_url = href.split("?")[0]
+                    if clean_url and clean_url not in seen_urls:
+                        seen_urls.add(clean_url)
+                        found.append({
+                            "url": clean_url,
+                            "title": "",
+                            "company": "",
+                            "location": ""
+                        })
+                except Exception:
+                    pass
+
+            return found
+
+        raw_cards = get_current_cards()
 
         # Only scroll if we need more job listings
-        if len(raw_urls) < max_jobs:
-            scroll_times = min(4, ((max_jobs - len(raw_urls)) // 4) + 1)
+        if len(raw_cards) < max_jobs:
+            scroll_times = min(4, ((max_jobs - len(raw_cards)) // 4) + 1)
             logger.info(f"Scrolling {scroll_times} times to reach {max_jobs} job listings...")
             
             if progress_callback:
@@ -312,50 +351,77 @@ def scrape_linkedin(keywords="alternance business analyst", location="France", m
                         page.wait_for_timeout(800)
                     except Exception as e:
                         logger.warning(f"See more button click failed: {e}")
-                raw_urls = get_current_card_urls()
-                if len(raw_urls) >= max_jobs:
+                raw_cards = get_current_cards()
+                if len(raw_cards) >= max_jobs:
                     break
 
-        target_count = min(max_jobs, len(raw_urls))
+        target_count = min(max_jobs, len(raw_cards))
         if target_count < max_jobs:
-            logger.warning(f"Found only {len(raw_urls)} jobs (requested {max_jobs}). Processing all available.")
-            target_count = len(raw_urls)
+            logger.warning(f"Found only {len(raw_cards)} jobs (requested {max_jobs}). Processing all available.")
+            target_count = len(raw_cards)
             
-        logger.info(f"Targeting {target_count} jobs out of {len(raw_urls)} found.")
+        logger.info(f"Targeting {target_count} jobs out of {len(raw_cards)} found.")
         
         jobs_data = []
         
-        for idx, job_url in enumerate(raw_urls[:target_count], start=1):
+        for idx, card_info in enumerate(raw_cards[:target_count], start=1):
+            job_url = card_info["url"]
+            card_title = card_info.get("title", "")
+            card_company = card_info.get("company", "")
+            card_location = card_info.get("location", "")
+
             logger.info(f"Processing job {idx}/{target_count}: {job_url}")
             if progress_callback:
-                progress_callback(idx - 1, target_count, f"Extraction [{idx}/{target_count}] : Chargement de la page...")
+                display_label = card_title[:30] if card_title else f"Offre #{idx}"
+                progress_callback(idx - 1, target_count, f"Extraction [{idx}/{target_count}] : {display_label}...")
+
+            # Add human-like jitter delay between requests to avoid rate-limiting
+            time.sleep(random.uniform(0.7, 1.4))
 
             try:
                 page.goto(job_url, wait_until="domcontentloaded", timeout=10000)
                 
                 # Fast wait for core elements to appear (DOM is already loaded)
                 try:
-                    page.wait_for_selector(".description__text, .show-more-less-html__markup, h1", timeout=3000)
+                    page.wait_for_selector(".description__text, .show-more-less-html__markup, .top-card-layout__title", timeout=3000)
                 except Exception:
                     pass
 
-                # Dismiss login modal if visible
-                dismiss_btn = page.locator("button.modal__dismiss").first
+                # Dismiss and purge any obstructive login modals / authwalls
+                try:
+                    page.evaluate("""
+                        const overlays = document.querySelectorAll('.modal__overlay, .contextual-sign-in-modal, .authwall, #advocate-modal, .top-level-modal-container');
+                        overlays.forEach(el => el.remove());
+                        document.body.style.overflow = 'auto';
+                    """)
+                except Exception:
+                    pass
+
+                dismiss_btn = page.locator("button.modal__dismiss, button.artdeco-modal__dismiss").first
                 if dismiss_btn.count() > 0 and dismiss_btn.is_visible():
                     try:
-                        dismiss_btn.click(timeout=600)
+                        dismiss_btn.click(timeout=400)
                     except Exception:
                         pass
 
-                # Extract Job Title
-                title_sel = page.locator("h1.top-card-layout__title, h1.topcard__title, h1")
-                job_title = "Unknown Title"
+                # Extract Job Title: strict selectors without generic 'h1'
+                title_sel = page.locator("h1.top-card-layout__title, h1.topcard__title, .top-card-layout__entity-info h1")
+                job_title = ""
                 if title_sel.count() > 0:
                     job_title = title_sel.first.text_content().strip()
 
+                # Fallback to card title if page title was empty or blocked by authwall
+                if not job_title or job_title.lower() in ["join linkedin", "rejoignez linkedin", "s’inscrire", "s'inscrire", "sign in", "unknown title"]:
+                    job_title = card_title
+
+                # Trust-boundary guard: Skip if still an invalid / authwall title
+                if not job_title or job_title.lower() in ["join linkedin", "rejoignez linkedin", "sign in", "s’inscrire", "s'inscrire", "unknown title"]:
+                    logger.warning(f"Skipping authwall/invalid entry: '{job_title}' for {job_url}")
+                    continue
+
                 # Company & Link
-                comp_sel = page.locator("a.topcard__org-name-link, span.topcard__flavor, a[href*='/company/']")
-                company = "Unknown Company"
+                comp_sel = page.locator("a.topcard__org-name-link, span.topcard__flavor:not(.topcard__flavor--bullet), a[href*='/company/']")
+                company = ""
                 company_url = ""
                 if comp_sel.count() > 0:
                     company = comp_sel.first.text_content().strip()
@@ -365,14 +431,21 @@ def scrape_linkedin(keywords="alternance business analyst", location="France", m
                         if company_url.startswith("/"):
                             company_url = f"https://www.linkedin.com{company_url}"
 
+                if not company or company.lower() in ["unknown company", "linkedin"]:
+                    company = card_company or "Entreprise non spécifiée"
+
                 if progress_callback:
                     progress_callback(idx - 1, target_count, f"Extraction [{idx}/{target_count}] : {company} - {job_title[:30]}...")
 
-                # Location
-                loc_sel = page.locator("span.topcard__flavor--metadata, span.sub-nav-item__sub-text")
-                location = "France"
+                # Location: Extract clean location, strictly avoid relative posting date (e.g. "9 hours ago")
+                loc_sel = page.locator("span.topcard__flavor.topcard__flavor--bullet:not(.topcard__flavor--metadata), span.sub-nav-item__sub-text")
+                location = ""
                 if loc_sel.count() > 0:
                     location = loc_sel.first.text_content().strip()
+
+                date_keywords = ["ago", "il y a", "hour", "heure", "day", "jour", "week", "semaine", "month", "mois"]
+                if not location or any(kw in location.lower() for kw in date_keywords):
+                    location = card_location or "France"
 
                 # Criteria (Employment type, Seniority, Industries, Job function)
                 job_criteria = {}
@@ -397,8 +470,8 @@ def scrape_linkedin(keywords="alternance business analyst", location="France", m
                     show_more = page.locator("button.show-more-less-html__button").first
                     if show_more.count() > 0 and show_more.is_visible():
                         try:
-                            show_more.click(timeout=600)
-                            page.wait_for_timeout(200)
+                            show_more.click(timeout=500)
+                            page.wait_for_timeout(150)
                         except Exception:
                             pass
                     try:
@@ -412,7 +485,7 @@ def scrape_linkedin(keywords="alternance business analyst", location="France", m
                 skills_required = extract_skills_from_text(description)
                 
                 jobs_data.append({
-                    "ID": idx,
+                    "ID": len(jobs_data) + 1,
                     "Job Title": job_title,
                     "Company": company,
                     "Location": location,
@@ -430,7 +503,7 @@ def scrape_linkedin(keywords="alternance business analyst", location="France", m
                 if progress_callback:
                     progress_callback(idx, target_count, f"Terminé [{idx}/{target_count}] : {company} ({len(skills_required)} compétences trouvées)")
                 
-                time.sleep(0.05)
+                time.sleep(random.uniform(0.4, 0.8))
 
             except Exception as e:
                 logger.error(f"Error processing job {idx}: {e}")
