@@ -20,11 +20,39 @@ MODEL_CANDIDATES = [
 def get_api_key(custom_key: Optional[str] = None) -> Optional[str]:
     """
     Récupère la clé d'API Gemini (priorité à la clé personnalisée passée en paramètre,
-    puis aux variables d'environnement).
+    puis aux fichiers .env à la racine ou dans .venv, puis aux variables d'environnement / st.secrets).
     """
     if custom_key and custom_key.strip():
         return custom_key.strip()
-    return os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+
+    # Recharger dynamiquement depuis les emplacements possibles (.env à la racine ou dans .venv)
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    root_dir = os.path.abspath(os.path.join(current_dir, ".."))
+    
+    env_paths = [
+        os.path.join(root_dir, ".env"),
+        os.path.join(root_dir, ".venv", ".env"),
+        os.path.join(current_dir, ".env"),
+        ".env",
+        ".venv/.env"
+    ]
+    for p in env_paths:
+        if os.path.exists(p) and os.path.isfile(p):
+            dotenv.load_dotenv(dotenv_path=p, override=True)
+            break
+
+    key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    
+    # Fallback pour Streamlit Cloud via st.secrets
+    if not key:
+        try:
+            import streamlit as st
+            if hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
+                key = st.secrets["GEMINI_API_KEY"]
+        except Exception:
+            pass
+
+    return key.strip() if key and key.strip() else None
 
 
 def call_gemini_api(prompt: str, system_instruction: Optional[str] = None, api_key: Optional[str] = None) -> str:
