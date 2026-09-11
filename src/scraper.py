@@ -239,11 +239,25 @@ LOCATION_GEO_MAP = {
 }
 
 
-def resolve_linkedin_location(loc_raw: str, api_key: Optional[str] = None):
+def resolve_linkedin_location(
+    loc_raw: str,
+    api_key: Optional[str] = None,
+    gemini_api_key: Optional[str] = None,
+    GEMINI_API_KEY: Optional[str] = None,
+    **kwargs
+):
     """
     Normalise intelligemment la chaîne de localisation pour LinkedIn en interrogeant Gemini AI,
     avec repli sur dictionnaire statique / règles heuristiques en cas d'absence de clé ou d'erreur réseau.
     """
+    key = GEMINI_API_KEY or gemini_api_key or api_key or kwargs.get("GEMINI_API_KEY") or kwargs.get("api_key")
+    if not key:
+        try:
+            from ai_assistant import get_api_key
+        except ImportError:
+            from src.ai_assistant import get_api_key
+        key = get_api_key()
+
     if not loc_raw:
         return "France", "105015875"
         
@@ -256,7 +270,7 @@ def resolve_linkedin_location(loc_raw: str, api_key: Optional[str] = None):
         except ImportError:
             from src.ai_assistant import normalize_search_location_with_ai
             
-        norm_loc, geo_id = normalize_search_location_with_ai(cleaned, api_key=api_key)
+        norm_loc, geo_id = normalize_search_location_with_ai(cleaned, api_key=key)
         if norm_loc:
             return norm_loc, geo_id
     except Exception as e:
@@ -290,8 +304,19 @@ def resolve_linkedin_location(loc_raw: str, api_key: Optional[str] = None):
     return cleaned, None
 
 
-def scrape_linkedin(keywords="alternance business analyst", location="France", max_jobs=10, progress_callback=None, api_key=None):
+def scrape_linkedin(
+    keywords="alternance business analyst",
+    location="France",
+    max_jobs=10,
+    progress_callback=None,
+    api_key: Optional[str] = None,
+    gemini_api_key: Optional[str] = None,
+    GEMINI_API_KEY: Optional[str] = None,
+    **kwargs
+):
     os.makedirs("output/screenshots", exist_ok=True)
+    
+    resolved_api_key = GEMINI_API_KEY or gemini_api_key or api_key or kwargs.get("GEMINI_API_KEY") or kwargs.get("api_key")
 
     if progress_callback:
         progress_callback(0, max_jobs, "Démarrage du navigateur Chromium...")
@@ -334,7 +359,7 @@ def scrape_linkedin(keywords="alternance business analyst", location="France", m
 
         # URL encode keyword and location with geoId resolution
         from urllib.parse import quote
-        resolved_loc, geo_id = resolve_linkedin_location(location, api_key=api_key)
+        resolved_loc, geo_id = resolve_linkedin_location(location, api_key=resolved_api_key)
         encoded_keywords = quote(keywords)
         encoded_location = quote(resolved_loc)
         search_url = f"https://www.linkedin.com/jobs/search?keywords={encoded_keywords}&location={encoded_location}"
