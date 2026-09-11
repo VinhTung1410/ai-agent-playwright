@@ -13,13 +13,12 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 dotenv.load_dotenv()
 logger = logging.getLogger(__name__)
 
-# Preferred models in order of priority
+# Preferred models in order of priority (ultra-fast, highly reliable models first)
 MODEL_CANDIDATES = [
+    "gemini-3.5-flash-lite",
     "gemini-3.6-flash",
-    "gemini-flash-latest",
-    "gemini-3.8-flash",
-    "gemini-2.5-flash-lite",
-    "gemini-1.5-flash"
+    "gemini-3-flash-preview",
+    "gemini-flash-latest"
 ]
 
 
@@ -103,18 +102,17 @@ def call_gemini_api(prompt: str, system_instruction: Optional[str] = None, api_k
                 last_err = e
                 logger.warning(f"Modèle {model_name} indisponible: {e}. Essai du modèle suivant...")
                 continue
-        
         if last_err:
-            raise last_err
-
-    except ImportError:
-        logger.info("google-genai non disponible, tentative avec google.generativeai...")
+            logger.warning(f"google-genai n'a pas pu aboutir: {last_err}. Tentative de bascule...")
+    except Exception as e:
+        last_err = e
+        logger.info(f"google-genai non disponible ou indisponible ({e}), tentative avec google.generativeai...")
 
     # 2. Fallback avec google.generativeai si disponible
     try:
         import google.generativeai as legacy_genai
         legacy_genai.configure(api_key=key)
-        for model_name in ["gemini-1.5-flash", "gemini-pro"]:
+        for model_name in MODEL_CANDIDATES:
             try:
                 model = legacy_genai.GenerativeModel(
                     model_name=model_name,
@@ -123,12 +121,15 @@ def call_gemini_api(prompt: str, system_instruction: Optional[str] = None, api_k
                 response = model.generate_content(prompt)
                 if response and response.text:
                     return response.text.strip()
-            except Exception:
+            except Exception as e:
+                last_err = e
                 continue
     except Exception as e:
-        logger.error(f"Échec de l'appel Gemini: {e}")
+        last_err = e
+        logger.error(f"Échec de l'appel Gemini legacy: {e}")
 
-    raise RuntimeError("Impossible de contacter l'API Gemini avec les modèles configurés.")
+    err_detail = f" ({last_err})" if last_err else ""
+    raise RuntimeError(f"Impossible de contacter l'API Gemini avec les modèles configurés{err_detail}")
 
 
 def detect_cover_letter_placeholders(text: str) -> List[str]:
