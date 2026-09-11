@@ -1,6 +1,6 @@
 # 🏛️ TÀI LIỆU KIẾN TRÚC & TỔNG KẾT TOÀN DIỆN DỰ ÁN (ARCHITECT.MD)
 > **Dự án:** LinkedIn Business Analyst Alternance Scraper & Tracker (France)  
-> **Phiên bản hiện tại:** `v1.0.4` (Sprint 5 - Đánh Giá Độ Phù Hợp CV PDF & Gợi Ý Cải Thiện Hồ Sơ)  
+> **Phiên bản hiện tại:** `v1.0.5` (Sprint 6 - Trợ Lý AI Sinh Thư Xin Việc & Tiếp Cận Recruiter LinkedIn)  
 > **Mục đích tài liệu:** Đóng gói toàn bộ kiến trúc, luồng hoạt động, cấu trúc mã nguồn, kinh nghiệm xử lý lỗi và hướng dẫn khởi chạy để bất kỳ thiết bị mới hoặc AI nào khi đọc tài liệu này đều có thể nắm bắt và tiếp tục phát triển 100% dự án ngay lập tức.
 
 ---
@@ -13,14 +13,16 @@
    - [4.1. Core Engine Scraper (`src/scraper.py`)](#41-core-engine-scraper-srcscraperpy)
    - [4.2. Web Dashboard UI (`src/app.py`)](#42-web-dashboard-ui-srcapppy)
    - [4.3. CV Matching & Recommendation Engine (`src/cv_matcher.py`)](#43-cv-matching--recommendation-engine-srccv_matcherpy)
-   - [4.4. Browser Controller Wrapper (`src/browser.py`)](#44-browser-controller-wrapper-srcbrowserpy)
-   - [4.5. CLI Entrypoint & Config (`src/main.py` & `src/config.py`)](#45-cli-entrypoint--config-srcmainpy--srcconfigpy)
+   - [4.4. Generative AI Assistant Copilot (`src/ai_assistant.py`)](#44-generative-ai-assistant-copilot-srcai_assistantpy)
+   - [4.5. Browser Controller Wrapper (`src/browser.py`)](#45-browser-controller-wrapper-srcbrowserpy)
+   - [4.6. CLI Entrypoint & Config (`src/main.py` & `src/config.py`)](#46-cli-entrypoint--config-srcmainpy--srcconfigpy)
 5. [Các Giải Pháp Kỹ Thuật Đột Phá & Xử Lý Edge Cases (Technical Solutions)](#5-các-giải-pháp-kỹ-thuật-đột-phá--xử-lý-edge-cases-technical-solutions)
    - [5.1. Vượt rào cản Authwall/Modal LinkedIn không cần Login](#51-vượt-rào-cản-authwallmodal-linkedin-không-cần-login)
    - [5.2. Tối ưu hóa siêu tốc độ cào dữ liệu (153s -> 20s) & Bộ lọc Request Interception](#52-tối-ưu-hóa-siêu-tốc-độ-cào-dữ-liệu-153s---20s--bộ-lọc-request-interception)
    - [5.3. Thẻ công việc bản địa (Native Job & Company Details) thay thế Screenshot thô](#53-thẻ-công-việc-bản-địa-native-job--company-details-thay-thế-screenshot-thô)
    - [5.4. Trích xuất text PDF và Matching kỹ năng (Sprint 5)](#54-trích-xuất-text-pdf-và-matching-kỹ-năng-sprint-5)
-   - [5.5. Chuẩn hóa & Nhận diện Kỹ năng tiếng Pháp (French BA Taxonomy)](#55-chuẩn-hóa--nhận-diện-kỹ-năng-tiếng-pháp-french-ba-taxonomy)
+   - [5.5. Trợ lý AI Sinh Thư Xin Việc & InMail Tiếp Cận Nhà Tuyển Dụng (Sprint 6)](#55-trợ-lý-ai-sinh-thư-xin-việc--inmail-tiếp-cận-nhà-tuyển-dụng-sprint-6)
+   - [5.6. Chuẩn hóa & Nhận diện Kỹ năng tiếng Pháp (French BA Taxonomy)](#56-chuẩn-hóa--nhận-diện-kỹ-năng-tiếng-pháp-french-ba-taxonomy)
    - [5.6. Tinh chỉnh biểu đồ Plotly trực quan: Nhãn tỉ lệ trực tiếp, loại bỏ Tooltip đen](#56-tinh-chỉnh-biểu-đồ-plotly-trực-quan-nhãn-tỉ-lệ-trực-tiếp-loại-bỏ-tooltip-đen)
    - [5.7. Tạo báo cáo Excel tương tác cao cấp với OpenPyXL](#57-tạo-báo-cáo-excel-tương-tác-cao-cấp-với-openpyxl)
    - [5.8. Giải quyết triệt để tương thích Streamlit Cloud & Linux Containers](#58-giải-quyết-triệt-để-tương-thích-streamlit-cloud--linux-containers)
@@ -119,7 +121,8 @@ Linkedin app/
 │   └── sample_cv_lucas_martin.pdf      # File CV PDF mẫu dùng để test
 ├── src/
 │   ├── __init__.py
-│   ├── app.py                     # [UI] Dashboard Streamlit 4 Tabs (Sprint 5: Tab CV Matcher)
+│   ├── ai_assistant.py            # [AI Copilot] Sinh Thư xin việc (Cover Letter), InMail & Gợi ý ATS bằng Gemini API
+│   ├── app.py                     # [UI] Dashboard Streamlit 4 Tabs (Sprint 6: AI Application Assistant)
 │   ├── browser.py                 # [Wrapper] Class PlaywrightBrowser
 │   ├── config.py                  # [Config] Hằng số cấu hình
 │   ├── cv_matcher.py              # [AI Matcher] Đọc PDF, bóc tách kỹ năng CV, tính Fit Score & đề xuất
@@ -129,7 +132,7 @@ Linkedin app/
 ├── Agent.md                       # [Rules] Triết lý kỹ sư Senior lười biếng (Ponytail)
 ├── packages.txt                   # Danh sách thư viện Linux (Debian) cho Playwright
 ├── README.md                      # Hướng dẫn sử dụng dự án (bản tiếng Pháp)
-├── requirements.txt               # Danh sách thư viện Python (pypdf, streamlit, plotly...)
+├── requirements.txt               # Danh sách thư viện Python (pypdf, streamlit, plotly, google-genai...)
 └── architect.md                   # [Tài liệu này] Kiến trúc toàn diện của dự án
 ```
 
@@ -148,7 +151,7 @@ Linkedin app/
 - **Tab 1: 📊 Tableaux de Bord & Visualisations:** Biểu đồ Plotly với nhãn tỉ lệ `X/Total (Y%)`, tắt tooltip đen và ẩn modebar.
 - **Tab 2: 📋 Suivi des Candidatures:** Bảng chỉnh sửa trực tiếp trạng thái ứng tuyển và nút tải file Excel tức thì.
 - **Tab 3: 📑 Fiche de Poste & Détails:** Trình bày chi tiết công việc dạng thẻ văn bản cấu trúc bản địa.
-- **Tab 4: 🎯 Évaluation du CV & Matching:** Bộ tải file CV PDF, thẻ tổng kết hồ sơ, bảng xếp hạng Leaderboard tất cả việc làm và bảng phân tích chuyên sâu từng bài tuyển dụng.
+- **Tab 4: 🎯 Évaluation du CV & Matching:** Bộ tải file CV PDF, thẻ tổng kết hồ sơ, bảng xếp hạng Leaderboard, so sánh kỹ năng và **Cụm Trợ lý AI Sinh Thư xin việc, Tin nhắn InMail & Puces ATS (Sprint 6)**.
 
 ### 4.3. CV Matching & Recommendation Engine (`src/cv_matcher.py`)
 Tuân thủ tuyệt đối triết lý [Agent.md](file:///c:/Users/Window/Desktop/Linkedin%20app/Agent.md) (tái sử dụng, không sinh code thừa):
@@ -157,13 +160,19 @@ Tuân thủ tuyệt đối triết lý [Agent.md](file:///c:/Users/Window/Deskto
 - `compute_job_match(cv_skills, job_skills, job_details)`:
   - Tính tập kỹ năng chung (`matched_skills`) và kỹ năng còn thiếu (`missing_skills`).
   - Tính điểm phù hợp: $\text{Score} = \min\left(100, \text{round}\left(\frac{|\text{Matched}|}{\max(1, |\text{Required}|)} \times 100\right)\right)$.
-  - Tự động sinh danh sách lời khuyên hành động thực tế bằng tiếng Pháp: từ khóa ATS, cách diễn đạt kinh nghiệm thay thế và lưu ý cho hợp đồng Alternance/Stage.
+  - Tự động sinh danh sách lời khuyên hành động thực tế bằng tiếng Pháp.
 - `rank_all_jobs_for_cv(cv_skills, jobs_data)`: Trả về danh sách xếp hạng tất cả công việc theo điểm phù hợp giảm dần.
 
-### 4.4. Browser Controller Wrapper (`src/browser.py`)
+### 4.4. Generative AI Assistant Copilot (`src/ai_assistant.py`)
+Tích hợp trực tiếp Google Gemini API qua SDK thế hệ mới (`google-genai`):
+- `generate_cover_letter(cv_text, job_details, matched_skills, missing_skills, candidate_name, tone)`: Sinh thư xin việc tiếng Pháp cá nhân hóa chuẩn cấu trúc Vous - Moi - Nous.
+- `generate_inmail_message(cv_text, job_details, matched_skills, candidate_name)`: Sinh tin nhắn kết nối LinkedIn ngắn gọn (< 280 ký tự) và thư InMail hoàn chỉnh (~120 từ).
+- `suggest_ats_bullets(cv_text, job_details, missing_skills)`: Đề xuất 3 gạch đầu dòng CV theo chuẩn STAR/XYZ để bù đắp các từ khóa ATS còn thiếu.
+
+### 4.5. Browser Controller Wrapper (`src/browser.py`)
 Lớp bao gói Playwright OOP cho phép quản lý vòng đời trình duyệt.
 
-### 4.5. CLI Entrypoint & Config (`src/main.py` & `src/config.py`)
+### 4.6. CLI Entrypoint & Config (`src/main.py` & `src/config.py`)
 Cung cấp lối vào cho việc chạy tự động qua terminal hoặc cron job.
 
 ---
@@ -239,6 +248,7 @@ streamlit run src/app.py
 | **v1.0.2** | **Sprint 3** | **Streamlit Cloud Deployment & Chromium Standardization:** Thay thế Edge bằng Chromium tiêu chuẩn, xử lý vấn đề `sudo` trên Cloud bằng `packages.txt`, tối ưu hóa cơ chế nhận diện headless theo OS. |
 | **v1.0.3** | **Sprint 4** | **UX/UI Enhancement & Performance Optimization:** Tối ưu tốc độ cào (15-30s), thẻ chi tiết công việc bản địa, biểu đồ Plotly hiển thị nhãn tỉ lệ `X/Total (Y%)`, thanh tiến trình thời gian thực kèm ETA. |
 | **v1.0.4** | **Sprint 5** | **CV PDF Matching & Tailored Recommendations:**<br>• Tích hợp `src/cv_matcher.py` đọc PDF và so khớp kỹ năng ứng viên với JD.<br>• Bổ sung **Tab 4 (Évaluation du CV & Matching)** trên Streamlit.<br>• Bảng xếp hạng Leaderboard toàn bộ việc làm theo điểm tương thích (Fit Score %).<br>• So sánh trực quan điểm mạnh (Forces) và điểm thiếu hụt (Manquants).<br>• Đưa ra gợi ý cải thiện hồ sơ cụ thể bằng tiếng Pháp theo từng vị trí tuyển dụng. |
+| **v1.0.5** | **Sprint 6** | **Generative AI Cover Letter, LinkedIn InMail & ATS Assistant:**<br>• Tích hợp `src/ai_assistant.py` với Google Gemini API (`gemini-3.6-flash`).<br>• Tự động sinh **Thư xin việc tiếng Pháp (Lettre de motivation)** chuẩn cấu trúc Vous - Moi - Nous và kèm nút tải `.txt`.<br>• Tự động tạo **Tin nhắn kết nối LinkedIn (< 280 ký tự)** và **Thư InMail (~120 từ)** tiếp cận trực tiếp nhà tuyển dụng.<br>• Đề xuất **3 gạch đầu dòng chuẩn ATS** theo phương pháp STAR/XYZ để bù đắp kỹ năng còn thiếu.<br>• Bổ sung hiển thị trạng thái API Key trên Sidebar và hỗ trợ cấu hình linh hoạt từ `.env`. |
 
 ---
 

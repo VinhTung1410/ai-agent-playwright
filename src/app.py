@@ -17,9 +17,11 @@ for p in [CURRENT_DIR, ROOT_DIR]:
 try:
     from scraper import scrape_linkedin, process_and_export, format_job_description
     from cv_matcher import extract_text_from_pdf, analyze_cv_skills, compute_job_match, rank_all_jobs_for_cv
+    from ai_assistant import generate_cover_letter, generate_inmail_message, suggest_ats_bullets, get_api_key
 except ImportError:
     from src.scraper import scrape_linkedin, process_and_export, format_job_description
     from src.cv_matcher import extract_text_from_pdf, analyze_cv_skills, compute_job_match, rank_all_jobs_for_cv
+    from src.ai_assistant import generate_cover_letter, generate_inmail_message, suggest_ats_bullets, get_api_key
 
 # Page configuration
 st.set_page_config(
@@ -264,6 +266,21 @@ with st.sidebar:
     keywords_input = st.text_input("Mots-clés de l'emploi", value="alternance business analyst")
     location_input = st.text_input("Localisation", value="France")
     
+    st.markdown("---")
+    st.subheader("🤖 Assistant IA Gemini")
+    active_key = get_api_key(st.session_state.get("custom_gemini_key"))
+    if active_key:
+        st.success("🟢 API Key Gemini active")
+    else:
+        custom_key_in = st.text_input(
+            "Clé API Gemini (Optionnel)",
+            type="password",
+            help="Saisissez votre clé API si elle n'est pas dans .env"
+        )
+        if custom_key_in:
+            st.session_state["custom_gemini_key"] = custom_key_in.strip()
+            st.rerun()
+
     st.markdown("---")
     st.subheader("🎯 Contrôle de la Collecte")
     
@@ -864,6 +881,140 @@ if df_jobs is not None and not df_jobs.empty:
                         st.markdown("### 💡 Plan d'Action & Conseils pour Adapter Votre CV")
                         for rec in match_info["recommendations"]:
                             st.markdown(f'<div class="rec-box">{rec}</div>', unsafe_allow_html=True)
+
+                        # SECTION 4: GENERATIVE AI SUITE (COVER LETTER, INMAIL & ATS BULLETS)
+                        st.markdown("---")
+                        st.markdown("### 🤖 Assistant IA Génératif (Gemini AI Copilot)")
+                        st.caption("Concevez instantanément une lettre de motivation sur-mesure et des messages d'approche LinkedIn personnalisés pour cette offre.")
+
+                        api_key_to_use = st.session_state.get("custom_gemini_key") or get_api_key()
+
+                        if not api_key_to_use:
+                            st.warning("⚠️ Clé API Gemini non détectée. Veuillez configurer `GEMINI_API_KEY` dans le fichier `.env` ou dans la barre latérale pour activer la génération automatique.")
+                        else:
+                            # Parameters
+                            col_p1, col_p2 = st.columns([1, 1])
+                            with col_p1:
+                                cand_name_input = st.text_input(
+                                    "Nom complet du candidat",
+                                    value="Lucas Martin",
+                                    key=f"cand_name_{target_job['Job ID']}"
+                                )
+                            with col_p2:
+                                tone_input = st.selectbox(
+                                    "Ton de la lettre",
+                                    options=[
+                                        "Professionnel & Dynamique",
+                                        "Académique & Rigoureux (Alternance / Stage)",
+                                        "Direct, Synthétique & Axé Résultats"
+                                    ],
+                                    key=f"tone_{target_job['Job ID']}"
+                                )
+
+                            # Sub-tabs for AI Tools
+                            ai_tab1, ai_tab2, ai_tab3 = st.tabs([
+                                "📝 Lettre de Motivation Sur-Mesure",
+                                "💬 Message Recruteur LinkedIn (InMail)",
+                                "🎯 Puces ATS pour Optimiser votre CV"
+                            ])
+
+                            # Cache state for this job
+                            cache_key = f"ai_gen_{target_job['Job ID']}"
+                            if cache_key not in st.session_state:
+                                st.session_state[cache_key] = {
+                                    "cover_letter": "",
+                                    "inmail": None,
+                                    "ats_bullets": ""
+                                }
+
+                            # SUB-TAB 1: Cover Letter
+                            with ai_tab1:
+                                st.write("")
+                                col_b1, col_b2 = st.columns([2, 1])
+                                with col_b1:
+                                    gen_letter_btn = st.button("✨ Rédiger ma Lettre de Motivation (IA)", type="primary", key=f"btn_let_{target_job['Job ID']}", use_container_width=True)
+                                with col_b2:
+                                    if st.session_state[cache_key]["cover_letter"]:
+                                        st.download_button(
+                                            "📥 Télécharger (.txt)",
+                                            data=st.session_state[cache_key]["cover_letter"],
+                                            file_name=f"Lettre_Motivation_{job_raw.get('Company', 'Entreprise')}_{job_raw.get('Job Title', 'Poste')}.txt",
+                                            mime="text/plain",
+                                            use_container_width=True
+                                        )
+
+                                if gen_letter_btn:
+                                    with st.spinner("🤖 Rédaction de votre lettre de motivation personnalisée en cours par Gemini..."):
+                                        try:
+                                            generated_letter = generate_cover_letter(
+                                                cv_text=cv_text,
+                                                job_details=job_raw,
+                                                matched_skills=match_info["matched_skills"],
+                                                missing_skills=match_info["missing_skills"],
+                                                candidate_name=cand_name_input,
+                                                tone=tone_input,
+                                                api_key=api_key_to_use
+                                            )
+                                            st.session_state[cache_key]["cover_letter"] = generated_letter
+                                        except Exception as e:
+                                            st.error(f"Erreur lors de la génération : {e}")
+
+                                if st.session_state[cache_key]["cover_letter"]:
+                                    st.markdown(st.session_state[cache_key]["cover_letter"])
+
+                            # SUB-TAB 2: LinkedIn InMail
+                            with ai_tab2:
+                                st.write("")
+                                gen_inmail_btn = st.button("✨ Générer les Messages d'Approche Recruteur", type="primary", key=f"btn_inmail_{target_job['Job ID']}")
+
+                                if gen_inmail_btn:
+                                    with st.spinner("🤖 Conception des messages d'accroche LinkedIn..."):
+                                        try:
+                                            inmail_res = generate_inmail_message(
+                                                cv_text=cv_text,
+                                                job_details=job_raw,
+                                                matched_skills=match_info["matched_skills"],
+                                                candidate_name=cand_name_input,
+                                                api_key=api_key_to_use
+                                            )
+                                            st.session_state[cache_key]["inmail"] = inmail_res
+                                        except Exception as e:
+                                            st.error(f"Erreur lors de la génération : {e}")
+
+                                inmail_data = st.session_state[cache_key]["inmail"]
+                                if inmail_data:
+                                    note_text = inmail_data.get("connection_note", "")
+                                    note_len = len(note_text)
+                                    char_color = "#10B981" if note_len <= 300 else "#EF4444"
+
+                                    st.markdown("#### 1. Note d'invitation LinkedIn (Courte)")
+                                    st.markdown(f"<span style='color:{char_color}; font-size:0.85rem; font-weight:600;'>📏 Longueur : {note_len}/300 caractères</span>", unsafe_allow_html=True)
+                                    st.text_area("Note à copier :", value=note_text, height=100, key=f"note_area_{target_job['Job ID']}")
+
+                                    st.markdown("<br>", unsafe_allow_html=True)
+                                    st.markdown("#### 2. Message InMail complet (Démarche directe)")
+                                    st.text_area("Message complet :", value=inmail_data.get("inmail_message", ""), height=220, key=f"inmail_area_{target_job['Job ID']}")
+
+                            # SUB-TAB 3: ATS Bullets
+                            with ai_tab3:
+                                st.write("")
+                                gen_ats_btn = st.button("✨ Suggérer 3 Puces CV Optimisées ATS", type="primary", key=f"btn_ats_{target_job['Job ID']}")
+
+                                if gen_ats_btn:
+                                    with st.spinner("🤖 Analyse des écarts et formulation des puces STAR/XYZ..."):
+                                        try:
+                                            bullets_res = suggest_ats_bullets(
+                                                cv_text=cv_text,
+                                                job_details=job_raw,
+                                                missing_skills=match_info["missing_skills"],
+                                                api_key=api_key_to_use
+                                            )
+                                            st.session_state[cache_key]["ats_bullets"] = bullets_res
+                                        except Exception as e:
+                                            st.error(f"Erreur lors de la génération : {e}")
+
+                                if st.session_state[cache_key]["ats_bullets"]:
+                                    st.markdown(st.session_state[cache_key]["ats_bullets"])
         else:
             st.info("👆 Veuillez importer votre CV au format PDF ci-dessus pour lancer l'évaluation automatique et obtenir vos recommandations personnalisées.")
 
