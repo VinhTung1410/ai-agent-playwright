@@ -5,6 +5,7 @@ import random
 import logging
 import pandas as pd
 from urllib.parse import urlparse
+from playwright.sync_api import sync_playwright
 try:
     import config
 except ImportError:
