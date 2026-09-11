@@ -91,15 +91,27 @@ python -m venv .venv
   - Bouton de sauvegarde vers le fichier Excel et téléchargement immédiat.
 - **Onglet 3 : 📑 Fiche de Poste & Détails (Job & Company Details)** :
   - Consultation directe des sections *About the job*, *About the company*, critères de séniorité et types d'emploi.
-- **Onglet 4 : 🎯 Évaluation du CV & Matching (AI Matcher)** :
+- **Onglet 4 : 🎯 Évaluation du CV & Matching (AI Matcher & Copilot)** :
   - Dépôt de CV PDF (`st.file_uploader`), extraction des compétences du candidat.
   - Leaderboard de compatibilité des offres.
   - Diagnostic comparatif des points forts et des compétences manquantes.
   - Conseils et plan d'action personnalisés par offre.
+  - **🤖 Assistant IA Génératif (Sprint 6)** :
+    - 📝 Génération 1-Click de la **Lettre de Motivation sur-mesure** (structure Vous - Moi - Nous, formules de politesse soignées, téléchargement `.txt`).
+    - 💬 Génération du **Message d'approche Recruteur** (Note d'invitation < 280 caractères et InMail complet).
+    - 🎯 Recommandation de **3 puces CV optimisées ATS** (méthode STAR/XYZ).
 
 ---
 
 ## 📜 Historique des Versions (Changelog)
+
+### 📌 v1.0.5 (Sprint 6) - *Generative AI Cover Letter, LinkedIn InMail & ATS Resume Assistant*
+- **Module IA Générative (`src/ai_assistant.py`)** : Intégration du SDK moderne `google-genai` et de `google.generativeai` avec modèles `gemini-3.6-flash` / `gemini-flash-latest`.
+- **Rdaction sur-mesure de Lettre de Motivation** : Analyse conjointe du CV PDF et du texte intégral du poste pour concevoir une lettre personnalisée au format français standard (En-tête, Vous, Moi, Nous, Conclusion) avec choix du ton rédactionnel.
+- **Générateur de Messages LinkedIn** : Production instantanée d'une note de mise en relation (< 280 caractères pour invitation) et d'un InMail de 100 à 150 mots.
+- **Optimisation CV par puces ATS** : Formulation de 3 réalisations chiffrées selon le modèle STAR pour compenser les compétences manquantes.
+- **Gestion sécurisée des clés API** : Chargement automatique depuis `.env` (`GEMINI_API_KEY`) avec possibilité de saisie directe dans la barre latérale.
+- **Mise à jour des dépendances** : Ajout de `google-genai>=1.0.0`, `google-generativeai>=0.8.0` et `python-dotenv>=1.0.0`.
 
 ### 📌 v1.0.4 (Sprint 5) - *CV PDF Matching, Fit Scoring & Personalized Recommendations*
 - **Module d'évaluation de CV (`src/cv_matcher.py`)** : Décodage de CV au format PDF via `pypdf`, extraction des compétences via la taxonomie bilingue existante.
