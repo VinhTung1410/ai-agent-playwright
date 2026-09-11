@@ -1,10 +1,76 @@
 import io
+import re
+import logging
 from typing import List, Dict, Tuple, Any, Optional
 import pypdf
+
+# Silence noisy startxref/object stream notices from pypdf
+logging.getLogger("pypdf").setLevel(logging.ERROR)
 try:
     from scraper import SKILL_MAP, extract_skills_from_text
 except ImportError:
     from src.scraper import SKILL_MAP, extract_skills_from_text
+
+
+def extract_candidate_profile(cv_text: str) -> Dict[str, str]:
+    """
+    Extrait automatiquement les métadonnées clés du profil du candidat (Nom, Email, Téléphone, Titre, Ville)
+    afin de pré-remplir les formulaires et les lettres de motivation sans saisie manuelle.
+    """
+    profile = {
+        "name": "",
+        "email": "",
+        "phone": "",
+        "title": "Business Analyst",
+        "location": "France"
+    }
+    if not cv_text:
+        return profile
+
+    lines = [line.strip() for line in cv_text.splitlines() if line.strip()]
+    
+    # 1. Extraction Email
+    email_match = re.search(r'([a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)', cv_text)
+    if email_match:
+        profile["email"] = email_match.group(1).strip()
+
+    # 2. Extraction Téléphone (Formats français et internationaux)
+    phone_match = re.search(r'((?:\+33|0033|0)\s*[1-9](?:[\s.-]*\d{2}){4})', cv_text)
+    if phone_match:
+        profile["phone"] = phone_match.group(1).strip()
+
+    # 3. Extraction Nom & Titre depuis les premières lignes
+    ignore_words = {"curriculum", "vitae", "cv", "resume", "profil", "contact", "experience", "formation", "competence", "skills"}
+    for idx, line in enumerate(lines[:6]):
+        # Éliminer les lignes d'email ou de téléphone
+        if "@" in line or (phone_match and phone_match.group(1) in line):
+            continue
+        
+        # Nettoyer d'éventuels séparateurs (ex: Lucas Martin - Business Analyst)
+        clean_line = re.sub(r'^[•\-\*\#\s]+', '', line)
+        parts = re.split(r'\s+[-|–—]\s+', clean_line, maxsplit=1)
+        potential_name = parts[0].strip()
+        
+        words = potential_name.split()
+        if 2 <= len(words) <= 4:
+            if not any(w.lower() in ignore_words for w in words):
+                # Vérifier que les mots commencent par une majuscule ou sont en majuscules
+                if all(w[0].isupper() for w in words if len(w) > 1):
+                    profile["name"] = potential_name
+                    if len(parts) > 1 and parts[1].strip():
+                        profile["title"] = parts[1].strip()
+                    elif idx + 1 < len(lines):
+                        next_line = lines[idx + 1]
+                        if "@" not in next_line and not re.search(r'\d{10}', next_line):
+                            profile["title"] = next_line[:80]
+                    break
+
+    # 4. Ville / Localisation
+    loc_match = re.search(r'(?:Paris|Lyon|Toulouse|Nantes|Bordeaux|Lille|Marseille|Rennes|Strasbourg|Montpellier|Nice|France)', cv_text, re.IGNORECASE)
+    if loc_match:
+        profile["location"] = loc_match.group(0).capitalize()
+
+    return profile
 
 
 def extract_text_from_pdf(pdf_source: Any) -> str:

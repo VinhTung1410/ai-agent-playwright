@@ -5,8 +5,10 @@ import random
 import logging
 import pandas as pd
 from urllib.parse import urlparse
-from playwright.sync_api import sync_playwright
-import config
+try:
+    import config
+except ImportError:
+    from src import config
 
 # openpyxl styles and tools
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side

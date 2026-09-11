@@ -1,6 +1,6 @@
 # 🏛️ TÀI LIỆU KIẾN TRÚC & TỔNG KẾT TOÀN DIỆN DỰ ÁN (ARCHITECT.MD)
 > **Dự án:** LinkedIn Business Analyst Alternance Scraper & Tracker (France)  
-> **Phiên bản hiện tại:** `v1.0.5` (Sprint 6 - Trợ Lý AI Sinh Thư Xin Việc & Tiếp Cận Recruiter LinkedIn)  
+> **Phiên bản hiện tại:** `v1.0.6` (Sprint 7 - Bóc Tách Hồ Sơ Thông Minh & Xuất Thư Xin Việc Word .DOCX Chuẩn Pháp)  
 > **Mục đích tài liệu:** Đóng gói toàn bộ kiến trúc, luồng hoạt động, cấu trúc mã nguồn, kinh nghiệm xử lý lỗi và hướng dẫn khởi chạy để bất kỳ thiết bị mới hoặc AI nào khi đọc tài liệu này đều có thể nắm bắt và tiếp tục phát triển 100% dự án ngay lập tức.
 
 ---
@@ -249,6 +249,7 @@ streamlit run src/app.py
 | **v1.0.3** | **Sprint 4** | **UX/UI Enhancement & Performance Optimization:** Tối ưu tốc độ cào (15-30s), thẻ chi tiết công việc bản địa, biểu đồ Plotly hiển thị nhãn tỉ lệ `X/Total (Y%)`, thanh tiến trình thời gian thực kèm ETA. |
 | **v1.0.4** | **Sprint 5** | **CV PDF Matching & Tailored Recommendations:**<br>• Tích hợp `src/cv_matcher.py` đọc PDF và so khớp kỹ năng ứng viên với JD.<br>• Bổ sung **Tab 4 (Évaluation du CV & Matching)** trên Streamlit.<br>• Bảng xếp hạng Leaderboard toàn bộ việc làm theo điểm tương thích (Fit Score %).<br>• So sánh trực quan điểm mạnh (Forces) và điểm thiếu hụt (Manquants).<br>• Đưa ra gợi ý cải thiện hồ sơ cụ thể bằng tiếng Pháp theo từng vị trí tuyển dụng. |
 | **v1.0.5** | **Sprint 6** | **Generative AI Cover Letter, LinkedIn InMail & ATS Assistant:**<br>• Tích hợp `src/ai_assistant.py` với Google Gemini API (`gemini-3.6-flash`).<br>• Tự động sinh **Thư xin việc tiếng Pháp (Lettre de motivation)** chuẩn cấu trúc Vous - Moi - Nous và kèm nút tải `.txt`.<br>• Tự động tạo **Tin nhắn kết nối LinkedIn (< 280 ký tự)** và **Thư InMail (~120 từ)** tiếp cận trực tiếp nhà tuyển dụng.<br>• Đề xuất **3 gạch đầu dòng chuẩn ATS** theo phương pháp STAR/XYZ để bù đắp kỹ năng còn thiếu.<br>• Bổ sung hiển thị trạng thái API Key trên Sidebar và hỗ trợ cấu hình linh hoạt từ `.env`. |
+| **v1.0.6** | **Sprint 7** | **Smart Profile Auto-Extraction & Professional Word DOCX Cover Letter Export:**<br>• Tự động bóc tách siêu dữ liệu ứng viên (`name`, `title`, `email`, `phone`, `location`) từ CV PDF để điền tự động vào thư xin việc và giao diện.<br>• Xuất file **Microsoft Word (.docx)** chuyên nghiệp với quy chuẩn thư thương mại tiếng Pháp (lề 2.5cm, bảng en-tête 2 cột, ngày tháng, khối chữ ký, font Calibri chuẩn công sở).<br>• Mở rộng cửa sổ ngữ cảnh CV (truyền toàn bộ văn bản CV lên đến 8.000 ký tự cho Gemini).<br>• Phát hiện và cảnh báo các biến giữ chỗ chưa điền (placeholders như `[Votre Nom]`, `[Adresse]`).<br>• Chuẩn hóa tham số giao diện Streamlit (`width="stretch"` thay cho `use_container_width=True`) loại bỏ triệt để cảnh báo deprecation trên môi trường sản xuất. |
 
 ---
 

@@ -15,13 +15,13 @@ for p in [CURRENT_DIR, ROOT_DIR]:
         sys.path.insert(0, p)
 
 try:
-    from scraper import scrape_linkedin, process_and_export, format_job_description
-    from cv_matcher import extract_text_from_pdf, analyze_cv_skills, compute_job_match, rank_all_jobs_for_cv
-    from ai_assistant import generate_cover_letter, generate_inmail_message, suggest_ats_bullets, get_api_key
+    from scraper import scrape_linkedin, process_and_export, format_job_description, clean_filename
+    from cv_matcher import extract_text_from_pdf, analyze_cv_skills, compute_job_match, rank_all_jobs_for_cv, extract_candidate_profile
+    from ai_assistant import generate_cover_letter, generate_inmail_message, suggest_ats_bullets, get_api_key, export_cover_letter_docx, detect_cover_letter_placeholders
 except ImportError:
-    from src.scraper import scrape_linkedin, process_and_export, format_job_description
-    from src.cv_matcher import extract_text_from_pdf, analyze_cv_skills, compute_job_match, rank_all_jobs_for_cv
-    from src.ai_assistant import generate_cover_letter, generate_inmail_message, suggest_ats_bullets, get_api_key
+    from src.scraper import scrape_linkedin, process_and_export, format_job_description, clean_filename
+    from src.cv_matcher import extract_text_from_pdf, analyze_cv_skills, compute_job_match, rank_all_jobs_for_cv, extract_candidate_profile
+    from src.ai_assistant import generate_cover_letter, generate_inmail_message, suggest_ats_bullets, get_api_key, export_cover_letter_docx, detect_cover_letter_placeholders
 
 # Page configuration
 st.set_page_config(
@@ -30,6 +30,13 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+def full_width_kw():
+    """Return width='stretch' if supported by current Streamlit version to prevent deprecation warnings, else use_container_width=True."""
+    import inspect
+    if "width" in inspect.signature(st.button).parameters:
+        return {"width": "stretch"}
+    return {"use_container_width": True}
 
 # Custom Styling for Premium Aesthetics
 st.markdown("""
@@ -302,7 +309,7 @@ with st.sidebar:
         </div>
     """, unsafe_allow_html=True)
     
-    if st.button("🚀 Lancer la collecte", type="primary", use_container_width=True):
+    if st.button("🚀 Lancer la collecte", type="primary", **full_width_kw()):
         progress_placeholder = st.empty()
         status_text = st.empty()
         detail_text = st.empty()
@@ -466,7 +473,7 @@ if df_jobs is not None and not df_jobs.empty:
                         title=None
                     )
                 )
-                st.plotly_chart(fig_skills, use_container_width=True, config={'displayModeBar': False})
+                st.plotly_chart(fig_skills, **full_width_kw(), config={'displayModeBar': False})
             else:
                 st.info("Aucune donnée de compétence disponible.")
 
@@ -496,7 +503,7 @@ if df_jobs is not None and not df_jobs.empty:
                     hoverlabel=common_hoverlabel,
                     legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="center", x=0.5, title=None)
                 )
-                st.plotly_chart(fig_cat, use_container_width=True, config={'displayModeBar': False})
+                st.plotly_chart(fig_cat, **full_width_kw(), config={'displayModeBar': False})
 
         st.markdown("---")
         
@@ -537,7 +544,7 @@ if df_jobs is not None and not df_jobs.empty:
                 margin=dict(l=10, r=80, t=50, b=30),
                 coloraxis_showscale=False
             )
-            st.plotly_chart(fig_comp, use_container_width=True, config={'displayModeBar': False})
+            st.plotly_chart(fig_comp, **full_width_kw(), config={'displayModeBar': False})
 
         with row2_col2:
             # Location Distribution
@@ -559,7 +566,7 @@ if df_jobs is not None and not df_jobs.empty:
                 margin=dict(l=10, r=10, t=50, b=30),
                 hoverlabel=common_hoverlabel
             )
-            st.plotly_chart(fig_loc, use_container_width=True, config={'displayModeBar': False})
+            st.plotly_chart(fig_loc, **full_width_kw(), config={'displayModeBar': False})
 
     # TAB 2: APPLICATION TRACKER & EXCEL EXPORT
     with tab2:
@@ -568,7 +575,7 @@ if df_jobs is not None and not df_jobs.empty:
 
         col_act1, col_act2, _ = st.columns([2, 2, 4])
         with col_act1:
-            save_clicked = st.button("💾 Sauvegarder les modifications", type="primary", use_container_width=True)
+            save_clicked = st.button("💾 Sauvegarder les modifications", type="primary", **full_width_kw())
             
         with col_act2:
             # Direct Excel Download button
@@ -580,7 +587,7 @@ if df_jobs is not None and not df_jobs.empty:
                     data=excel_data,
                     file_name="LinkedIn_Job_Tracker_Report.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
+                    **full_width_kw()
                 )
 
         # Render Data Editor
@@ -642,11 +649,11 @@ if df_jobs is not None and not df_jobs.empty:
                 with b1:
                     job_url = str(selected_job.get('Job URL', ''))
                     if job_url and job_url.startswith("http"):
-                        st.link_button("🔗 Postuler sur LinkedIn", job_url, use_container_width=True)
+                        st.link_button("🔗 Postuler sur LinkedIn", job_url, **full_width_kw())
                 with b2:
                     comp_url = str(selected_job.get('Company URL', ''))
                     if comp_url and comp_url.startswith("http"):
-                        st.link_button("🏢 Page Entreprise", comp_url, use_container_width=True)
+                        st.link_button("🏢 Page Entreprise", comp_url, **full_width_kw())
 
             # 2. Key Criteria Metrics
             c1, c2, c3, c4 = st.columns(4)
@@ -710,7 +717,7 @@ if df_jobs is not None and not df_jobs.empty:
             st.write("")
             st.write("")
             sample_pdf_path = os.path.join(ROOT_DIR, "output", "sample_cv_lucas_martin.pdf")
-            use_sample = st.button("🧪 CV Exemple (Lucas Martin)", help="Tester instantanément avec le profil Business Analyst exemple", use_container_width=True)
+            use_sample = st.button("🧪 CV Exemple (Lucas Martin)", help="Tester instantanément avec le profil Business Analyst exemple", **full_width_kw())
             if use_sample and os.path.exists(sample_pdf_path):
                 with open(sample_pdf_path, "rb") as f:
                     st.session_state["sample_cv_bytes"] = f.read()
@@ -725,12 +732,36 @@ if df_jobs is not None and not df_jobs.empty:
                 cv_text = extract_text_from_pdf(cv_source)
                 cv_analysis = analyze_cv_skills(cv_text)
                 cv_skills = cv_analysis["skills"]
+                cand_profile = extract_candidate_profile(cv_text)
+                st.session_state["cand_profile"] = cand_profile
 
             if not cv_text:
                 st.warning("⚠️ Impossible d'extraire le texte de ce fichier PDF. Vérifiez qu'il ne s'agit pas d'un document scanné sous forme d'image sans couche texte OCR.")
             else:
                 # 1. Candidate Skills Summary Card
                 st.markdown("### 👤 Profil Candidat Détecté")
+
+                # Extracted candidate profile contact chips
+                cand_info_chips = []
+                if cand_profile.get("name"):
+                    cand_info_chips.append(f"👤 <b>{cand_profile['name']}</b>")
+                if cand_profile.get("title"):
+                    cand_info_chips.append(f"💼 {cand_profile['title']}")
+                if cand_profile.get("email"):
+                    cand_info_chips.append(f"📧 {cand_profile['email']}")
+                if cand_profile.get("phone"):
+                    cand_info_chips.append(f"📱 {cand_profile['phone']}")
+                if cand_profile.get("location"):
+                    cand_info_chips.append(f"📍 {cand_profile['location']}")
+
+                if cand_info_chips:
+                    info_html = " &nbsp; | &nbsp; ".join(cand_info_chips)
+                    st.markdown(f"""
+                        <div style="background: #F8FAFC; border-radius: 8px; padding: 10px 14px; margin-top: 4px; margin-bottom: 14px; font-size: 0.92rem; color: #1E293B; border-left: 4px solid #3B82F6;">
+                            {info_html}
+                        </div>
+                    """, unsafe_allow_html=True)
+
                 c1, c2, c3, c4 = st.columns(4)
                 with c1:
                     st.metric("Total Compétences", len(cv_skills))
@@ -885,7 +916,7 @@ if df_jobs is not None and not df_jobs.empty:
                         # SECTION 4: GENERATIVE AI SUITE (COVER LETTER, INMAIL & ATS BULLETS)
                         st.markdown("---")
                         st.markdown("### 🤖 Assistant IA Génératif (Gemini AI Copilot)")
-                        st.caption("Concevez instantanément une lettre de motivation sur-mesure et des messages d'approche LinkedIn personnalisés pour cette offre.")
+                        st.caption("Concevez instantanément une lettre de motivation sur-mesure au format Word (.docx) et des messages d'approche LinkedIn personnalisés.")
 
                         api_key_to_use = st.session_state.get("custom_gemini_key") or get_api_key()
 
@@ -895,9 +926,10 @@ if df_jobs is not None and not df_jobs.empty:
                             # Parameters
                             col_p1, col_p2 = st.columns([1, 1])
                             with col_p1:
+                                default_cand_name = cand_profile.get("name") if cand_profile.get("name") else "Lucas Martin"
                                 cand_name_input = st.text_input(
                                     "Nom complet du candidat",
-                                    value="Lucas Martin",
+                                    value=default_cand_name,
                                     key=f"cand_name_{target_job['Job ID']}"
                                 )
                             with col_p2:
@@ -930,17 +962,40 @@ if df_jobs is not None and not df_jobs.empty:
                             # SUB-TAB 1: Cover Letter
                             with ai_tab1:
                                 st.write("")
-                                col_b1, col_b2 = st.columns([2, 1])
+                                col_b1, col_b2, col_b3 = st.columns([2, 1, 1])
                                 with col_b1:
-                                    gen_letter_btn = st.button("✨ Rédiger ma Lettre de Motivation (IA)", type="primary", key=f"btn_let_{target_job['Job ID']}", use_container_width=True)
+                                    gen_letter_btn = st.button("✨ Rédiger ma Lettre de Motivation (IA)", type="primary", key=f"btn_let_{target_job['Job ID']}", **full_width_kw())
+                                
+                                current_letter = st.session_state[cache_key]["cover_letter"]
                                 with col_b2:
-                                    if st.session_state[cache_key]["cover_letter"]:
+                                    if current_letter:
+                                        clean_comp = clean_filename(job_raw.get('Company', 'Entreprise'))
+                                        clean_cand = clean_filename(cand_name_input)
+                                        docx_bytes = export_cover_letter_docx(
+                                            cover_letter_text=current_letter,
+                                            candidate_name=cand_name_input,
+                                            job_details=job_raw,
+                                            candidate_info=cand_profile
+                                        )
+                                        st.download_button(
+                                            "📄 Télécharger (.docx Word)",
+                                            data=docx_bytes,
+                                            file_name=f"Lettre_Motivation_{clean_comp}_{clean_cand}.docx",
+                                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                            key=f"dl_docx_{target_job['Job ID']}",
+                                            **full_width_kw()
+                                        )
+                                with col_b3:
+                                    if current_letter:
+                                        clean_comp = clean_filename(job_raw.get('Company', 'Entreprise'))
+                                        clean_cand = clean_filename(cand_name_input)
                                         st.download_button(
                                             "📥 Télécharger (.txt)",
-                                            data=st.session_state[cache_key]["cover_letter"],
-                                            file_name=f"Lettre_Motivation_{job_raw.get('Company', 'Entreprise')}_{job_raw.get('Job Title', 'Poste')}.txt",
+                                            data=current_letter,
+                                            file_name=f"Lettre_Motivation_{clean_comp}_{clean_cand}.txt",
                                             mime="text/plain",
-                                            use_container_width=True
+                                            key=f"dl_txt_{target_job['Job ID']}",
+                                            **full_width_kw()
                                         )
 
                                 if gen_letter_btn:
@@ -953,19 +1008,26 @@ if df_jobs is not None and not df_jobs.empty:
                                                 missing_skills=match_info["missing_skills"],
                                                 candidate_name=cand_name_input,
                                                 tone=tone_input,
+                                                candidate_info=cand_profile,
                                                 api_key=api_key_to_use
                                             )
                                             st.session_state[cache_key]["cover_letter"] = generated_letter
+                                            st.rerun()
                                         except Exception as e:
                                             st.error(f"Erreur lors de la génération : {e}")
 
                                 if st.session_state[cache_key]["cover_letter"]:
-                                    st.markdown(st.session_state[cache_key]["cover_letter"])
+                                    letter_content = st.session_state[cache_key]["cover_letter"]
+                                    placeholders = detect_cover_letter_placeholders(letter_content)
+                                    if placeholders:
+                                        ph_pills = " ".join([f"`{p}`" for p in placeholders])
+                                        st.warning(f"⚠️ **Variables détectées à personnaliser :** {ph_pills}. Pensez à les compléter avant de transmettre votre lettre.")
+                                    st.markdown(letter_content)
 
                             # SUB-TAB 2: LinkedIn InMail
                             with ai_tab2:
                                 st.write("")
-                                gen_inmail_btn = st.button("✨ Générer les Messages d'Approche Recruteur", type="primary", key=f"btn_inmail_{target_job['Job ID']}")
+                                gen_inmail_btn = st.button("✨ Générer les Messages d'Approche Recruteur", type="primary", key=f"btn_inmail_{target_job['Job ID']}", **full_width_kw())
 
                                 if gen_inmail_btn:
                                     with st.spinner("🤖 Conception des messages d'accroche LinkedIn..."):
@@ -978,6 +1040,7 @@ if df_jobs is not None and not df_jobs.empty:
                                                 api_key=api_key_to_use
                                             )
                                             st.session_state[cache_key]["inmail"] = inmail_res
+                                            st.rerun()
                                         except Exception as e:
                                             st.error(f"Erreur lors de la génération : {e}")
 
@@ -998,7 +1061,7 @@ if df_jobs is not None and not df_jobs.empty:
                             # SUB-TAB 3: ATS Bullets
                             with ai_tab3:
                                 st.write("")
-                                gen_ats_btn = st.button("✨ Suggérer 3 Puces CV Optimisées ATS", type="primary", key=f"btn_ats_{target_job['Job ID']}")
+                                gen_ats_btn = st.button("✨ Suggérer 3 Puces CV Optimisées ATS", type="primary", key=f"btn_ats_{target_job['Job ID']}", **full_width_kw())
 
                                 if gen_ats_btn:
                                     with st.spinner("🤖 Analyse des écarts et formulation des puces STAR/XYZ..."):
@@ -1010,6 +1073,7 @@ if df_jobs is not None and not df_jobs.empty:
                                                 api_key=api_key_to_use
                                             )
                                             st.session_state[cache_key]["ats_bullets"] = bullets_res
+                                            st.rerun()
                                         except Exception as e:
                                             st.error(f"Erreur lors de la génération : {e}")
 

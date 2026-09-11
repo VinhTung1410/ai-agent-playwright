@@ -105,9 +105,17 @@ python -m venv .venv
 
 ## 📜 Historique des Versions (Changelog)
 
+### 📌 v1.0.6 (Sprint 7) - *Smart Profile Auto-Extraction & Professional Word DOCX Cover Letter Export*
+- **Extraction automatique du profil candidat (`extract_candidate_profile`)** : Détection intelligente du Nom, Titre professionnel, Email, Téléphone et Ville directement depuis le PDF du CV pour pré-remplir les lettres sans ressaisie manuelle.
+- **Export professionnel Microsoft Word (.docx)** : Génération de documents Word respectant les normes typographiques des lettres d'affaires en France (marges de 2,5 cm, tableau d'en-tête 2 colonnes aligné, date et lieu, objet formel, salutations et bloc signature soigné).
+- **Élargissement de la fenêtre de contexte CV** : Transmission intégrale du texte du CV jusqu'à 8 000 caractères au modèle Gemini pour une contextualisation parfaite des expériences et projets.
+- **Détection des variables de remplacement (`detect_cover_letter_placeholders`)** : Alerte visuelle en cas de balises non renseignées (ex. `[Votre Nom]`, `[Entreprise]`, `[Adresse]`).
+- **Modernisation de la compatibilité Streamlit** : Remplacement des arguments obsolètes `use_container_width=True` par `width="stretch"` via un adaptateur dynamique pour supprimer les avertissements dans les logs de production Streamlit Cloud.
+- **Mise à jour des dépendances** : Ajout de `python-docx>=1.1.0` dans `requirements.txt`.
+
 ### 📌 v1.0.5 (Sprint 6) - *Generative AI Cover Letter, LinkedIn InMail & ATS Resume Assistant*
-- **Module IA Générative (`src/ai_assistant.py`)** : Intégration du SDK moderne `google-genai` et de `google.generativeai` avec modèles `gemini-3.6-flash` / `gemini-flash-latest`.
-- **Rdaction sur-mesure de Lettre de Motivation** : Analyse conjointe du CV PDF et du texte intégral du poste pour concevoir une lettre personnalisée au format français standard (En-tête, Vous, Moi, Nous, Conclusion) avec choix du ton rédactionnel.
+- **Module IA Générative (`src/ai_assistant.py`)** : Intégration du SDK moderne `google-genai` và `google.generativeai` avec modèles `gemini-3.6-flash` / `gemini-flash-latest`.
+- **Rédaction sur-mesure de Lettre de Motivation** : Analyse conjointe du CV PDF et du texte intégral du poste pour concevoir une lettre personnalisée au format français standard (En-tête, Vous, Moi, Nous, Conclusion) avec choix du ton rédactionnel.
 - **Générateur de Messages LinkedIn** : Production instantanée d'une note de mise en relation (< 280 caractères pour invitation) et d'un InMail de 100 à 150 mots.
 - **Optimisation CV par puces ATS** : Formulation de 3 réalisations chiffrées selon le modèle STAR pour compenser les compétences manquantes.
 - **Gestion sécurisée des clés API** : Chargement automatique depuis `.env` (`GEMINI_API_KEY`) avec possibilité de saisie directe dans la barre latérale.
