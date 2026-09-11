@@ -341,7 +341,8 @@ with st.sidebar:
                     keywords=keywords_input,
                     location=location_input,
                     max_jobs=max_jobs_input,
-                    progress_callback=progress_callback
+                    progress_callback=progress_callback,
+                    api_key=active_key
                 )
                 
                 status_text.text(f"📊 Analyse des compétences et génération du rapport ({len(jobs_data)} offres)...")

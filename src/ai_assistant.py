@@ -3,7 +3,7 @@ import io
 import re
 import datetime
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 import dotenv
 import docx
 from docx.shared import Inches, Pt, RGBColor
@@ -130,6 +130,72 @@ def call_gemini_api(prompt: str, system_instruction: Optional[str] = None, api_k
 
     err_detail = f" ({last_err})" if last_err else ""
     raise RuntimeError(f"Impossible de contacter l'API Gemini avec les modèles configurés{err_detail}")
+
+
+_LOCATION_AI_CACHE: Dict[str, Any] = {}
+
+def normalize_search_location_with_ai(user_location: str, api_key: Optional[str] = None) -> Tuple[str, Optional[str]]:
+    """
+    Utilise Gemini AI pour convertir n'importe quelle saisie utilisateur (typos, abréviations, français, vietnamien)
+    en un nom officiel de localisation reconnu par LinkedIn avec son geoId.
+    Met en cache les résultats pour une réponse instantanée à 0ms.
+    """
+    if not user_location or not user_location.strip():
+        return "France", "105015875"
+        
+    cleaned = user_location.strip()
+    cache_key = cleaned.lower()
+    if cache_key in _LOCATION_AI_CACHE:
+        return _LOCATION_AI_CACHE[cache_key]
+
+    prompt = (
+        "You are a LinkedIn Search Location Normalizer.\n"
+        "Convert this raw user location into the official English location recognized by LinkedIn's public job search, "
+        "and provide its LinkedIn numeric geoId if known.\n"
+        f"User Location: \"{cleaned}\"\n\n"
+        "Examples:\n"
+        "- \"Viet Nam\" or \"việt nam\" or \"vn\" -> {\"linkedin_location\": \"Vietnam\", \"geo_id\": \"104195383\"}\n"
+        "- \"sài gòn\" or \"tphcm\" or \"hcm\" -> {\"linkedin_location\": \"Ho Chi Minh City, Vietnam\", \"geo_id\": \"104195383\"}\n"
+        "- \"hà nội\" or \"hanoi\" -> {\"linkedin_location\": \"Hanoi, Vietnam\", \"geo_id\": \"104195383\"}\n"
+        "- \"đà nẵng\" -> {\"linkedin_location\": \"Da Nang, Vietnam\", \"geo_id\": \"104195383\"}\n"
+        "- \"Pháp\" or \"france\" -> {\"linkedin_location\": \"France\", \"geo_id\": \"105015875\"}\n"
+        "- \"paris\" -> {\"linkedin_location\": \"Paris, France\", \"geo_id\": \"105015875\"}\n"
+        "- \"bay area\" -> {\"linkedin_location\": \"San Francisco Bay Area\", \"geo_id\": \"90000084\"}\n"
+        "- \"singapore\" -> {\"linkedin_location\": \"Singapore\", \"geo_id\": \"102454443\"}\n"
+        "- \"tokyo\" -> {\"linkedin_location\": \"Tokyo, Japan\", \"geo_id\": \"101355337\"}\n\n"
+        "Return ONLY a valid JSON object with keys \"linkedin_location\" (string) and \"geo_id\" (string or null). No other text."
+    )
+
+    try:
+        resp_text = call_gemini_api(prompt, api_key=api_key)
+        clean_json = re.sub(r'^```(?:json)?\s*', '', resp_text.strip(), flags=re.IGNORECASE)
+        clean_json = re.sub(r'\s*```$', '', clean_json).strip()
+        import json
+        data = json.loads(clean_json)
+        norm_loc = str(data.get("linkedin_location", cleaned)).strip()
+        geo_id = data.get("geo_id")
+        if geo_id:
+            geo_id = str(geo_id).strip()
+            if not geo_id.isdigit():
+                geo_id = None
+        result = (norm_loc or cleaned, geo_id)
+        _LOCATION_AI_CACHE[cache_key] = result
+        return result
+    except Exception as e:
+        logger.warning(f"AI location normalization failed: {e}. Falling back to rule-based.")
+
+    # Rule-based heuristic fallback if AI fails or no key
+    lower = cleaned.lower()
+    if any(v in lower for v in ["viet nam", "việt nam", "vietnam", "vn"]):
+        res = ("Vietnam", "104195383")
+        _LOCATION_AI_CACHE[cache_key] = res
+        return res
+    if any(v in lower for v in ["france", "pháp"]):
+        res = ("France", "105015875")
+        _LOCATION_AI_CACHE[cache_key] = res
+        return res
+
+    return (cleaned, None)
 
 
 def detect_cover_letter_placeholders(text: str) -> List[str]:

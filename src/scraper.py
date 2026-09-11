@@ -4,6 +4,7 @@ import time
 import random
 import logging
 import pandas as pd
+from typing import Dict, List, Any, Optional, Tuple
 from urllib.parse import urlparse
 from playwright.sync_api import sync_playwright
 try:
@@ -188,9 +189,108 @@ def format_job_description(text: str) -> str:
     # 4. Éviter l'accumulation excessive de lignes vides
     formatted = re.sub(r'\n{3,}', '\n\n', formatted)
     
-    return formatted.strip()
+# Geographic mapping for LinkedIn official country/city names and geoId
+LOCATION_GEO_MAP = {
+    # Vietnam
+    "viet nam": ("Vietnam", "104195383"),
+    "việt nam": ("Vietnam", "104195383"),
+    "vietnam": ("Vietnam", "104195383"),
+    "vn": ("Vietnam", "104195383"),
+    "ho chi minh": ("Ho Chi Minh City, Vietnam", "104195383"),
+    "hồ chí minh": ("Ho Chi Minh City, Vietnam", "104195383"),
+    "hcm": ("Ho Chi Minh City, Vietnam", "104195383"),
+    "tp hcm": ("Ho Chi Minh City, Vietnam", "104195383"),
+    "tp.hcm": ("Ho Chi Minh City, Vietnam", "104195383"),
+    "saigon": ("Ho Chi Minh City, Vietnam", "104195383"),
+    "sai gon": ("Ho Chi Minh City, Vietnam", "104195383"),
+    "ha noi": ("Hanoi, Vietnam", "104195383"),
+    "hà nội": ("Hanoi, Vietnam", "104195383"),
+    "hanoi": ("Hanoi, Vietnam", "104195383"),
+    "da nang": ("Da Nang, Vietnam", "104195383"),
+    "đà nẵng": ("Da Nang, Vietnam", "104195383"),
+    
+    # France
+    "france": ("France", "105015875"),
+    "pháp": ("France", "105015875"),
+    "paris": ("Paris, France", "105015875"),
+    "lyon": ("Lyon, France", "105015875"),
+    "marseille": ("Marseille, France", "105015875"),
+    "toulouse": ("Toulouse, France", "105015875"),
+    "bordeaux": ("Bordeaux, France", "105015875"),
+    "nantes": ("Nantes, France", "105015875"),
+    "lille": ("Lille, France", "105015875"),
+    
+    # Global & Western Countries
+    "us": ("United States", "103644278"),
+    "usa": ("United States", "103644278"),
+    "united states": ("United States", "103644278"),
+    "mỹ": ("United States", "103644278"),
+    "uk": ("United Kingdom", "102257491"),
+    "united kingdom": ("United Kingdom", "102257491"),
+    "anh": ("United Kingdom", "102257491"),
+    "singapore": ("Singapore", "102454443"),
+    "japan": ("Japan", "101355337"),
+    "nhật bản": ("Japan", "101355337"),
+    "germany": ("Germany", "101282230"),
+    "đức": ("Germany", "101282230"),
+    "canada": ("Canada", "101174742"),
+    "australia": ("Australia", "101452733"),
+    "úc": ("Australia", "101452733"),
+}
 
-def scrape_linkedin(keywords="alternance business analyst", location="France", max_jobs=10, progress_callback=None):
+
+def resolve_linkedin_location(loc_raw: str, api_key: Optional[str] = None):
+    """
+    Normalise intelligemment la chaîne de localisation pour LinkedIn en interrogeant Gemini AI,
+    avec repli sur dictionnaire statique / règles heuristiques en cas d'absence de clé ou d'erreur réseau.
+    """
+    if not loc_raw:
+        return "France", "105015875"
+        
+    cleaned = loc_raw.strip()
+
+    # 1. Résolution intelligente prioritaire avec Gemini AI
+    try:
+        try:
+            from ai_assistant import normalize_search_location_with_ai
+        except ImportError:
+            from src.ai_assistant import normalize_search_location_with_ai
+            
+        norm_loc, geo_id = normalize_search_location_with_ai(cleaned, api_key=api_key)
+        if norm_loc:
+            return norm_loc, geo_id
+    except Exception as e:
+        logger.warning(f"Bascule vers la résolution statique de localisation : {e}")
+
+    # 2. Fallback heuristique / statique
+    lower = cleaned.lower()
+    lower_ascii = re.sub(r'[àáạảãâầấậẩẫăằắặẳẵ]', 'a', lower)
+    lower_ascii = re.sub(r'[èéẹẻẽêềếệểễ]', 'e', lower_ascii)
+    lower_ascii = re.sub(r'[ìíịỉĩ]', 'i', lower_ascii)
+    lower_ascii = re.sub(r'[òóọỏõôồốộổỗơờớợởỡ]', 'o', lower_ascii)
+    lower_ascii = re.sub(r'[ùúụủũưừứựửữ]', 'u', lower_ascii)
+    lower_ascii = re.sub(r'[ỳýỵỷỹ]', 'y', lower_ascii)
+    lower_ascii = re.sub(r'[đ]', 'd', lower_ascii)
+    
+    if lower in LOCATION_GEO_MAP:
+        return LOCATION_GEO_MAP[lower]
+    if lower_ascii in LOCATION_GEO_MAP:
+        return LOCATION_GEO_MAP[lower_ascii]
+        
+    if "viet nam" in lower_ascii or "vietnam" in lower_ascii:
+        return "Vietnam", "104195383"
+    if "ho chi minh" in lower_ascii or "saigon" in lower_ascii or "sai gon" in lower_ascii:
+        return "Ho Chi Minh City, Vietnam", "104195383"
+    if "ha noi" in lower_ascii or "hanoi" in lower_ascii:
+        return "Hanoi, Vietnam", "104195383"
+        
+    if "france" in lower_ascii or "paris" in lower_ascii:
+        return cleaned, "105015875"
+        
+    return cleaned, None
+
+
+def scrape_linkedin(keywords="alternance business analyst", location="France", max_jobs=10, progress_callback=None, api_key=None):
     os.makedirs("output/screenshots", exist_ok=True)
 
     if progress_callback:
@@ -232,15 +332,20 @@ def scrape_linkedin(keywords="alternance business analyst", location="France", m
         page = context.new_page()
         page.set_default_timeout(15000)
 
-        # URL encode keyword and location
+        # URL encode keyword and location with geoId resolution
         from urllib.parse import quote
+        resolved_loc, geo_id = resolve_linkedin_location(location, api_key=api_key)
         encoded_keywords = quote(keywords)
-        encoded_location = quote(location)
-        search_url = f"https://www.linkedin.com/jobs/search?keywords={encoded_keywords}&location={encoded_location}&f_TPR=r86400"
-        logger.info(f"Navigating to: {search_url}")
+        encoded_location = quote(resolved_loc)
+        search_url = f"https://www.linkedin.com/jobs/search?keywords={encoded_keywords}&location={encoded_location}"
+        if geo_id:
+            search_url += f"&geoId={geo_id}"
+        search_url += "&f_TPR=r86400"
+        logger.info(f"Navigating to: {search_url} (Location resolved: '{resolved_loc}', geoId={geo_id})")
         
         if progress_callback:
-            progress_callback(0, max_jobs, f"Recherche sur LinkedIn pour '{keywords}' ({location})...")
+            loc_label = f"{resolved_loc} (geoId: {geo_id})" if geo_id else resolved_loc
+            progress_callback(0, max_jobs, f"🧠 Recherche ciblée sur LinkedIn : '{keywords}' ({loc_label})...")
             
         page.goto(search_url, wait_until="domcontentloaded", timeout=15000)
 
