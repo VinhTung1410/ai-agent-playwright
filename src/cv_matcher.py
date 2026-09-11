@@ -15,10 +15,10 @@ def extract_text_from_pdf(pdf_source: Any) -> str:
     try:
         if isinstance(pdf_source, (str, bytes)):
             stream = io.BytesIO(pdf_source) if isinstance(pdf_source, bytes) else pdf_source
-            reader = pypdf.PdfReader(stream)
+            reader = pypdf.PdfReader(stream, strict=False)
         else:
             # Pour Streamlit UploadedFile ou objet similaire
-            reader = pypdf.PdfReader(pdf_source)
+            reader = pypdf.PdfReader(pdf_source, strict=False)
             
         for page in reader.pages:
             page_text = page.extract_text()

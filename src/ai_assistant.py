@@ -47,8 +47,17 @@ def get_api_key(custom_key: Optional[str] = None) -> Optional[str]:
     if not key:
         try:
             import streamlit as st
-            if hasattr(st, "secrets") and "GEMINI_API_KEY" in st.secrets:
-                key = st.secrets["GEMINI_API_KEY"]
+            if hasattr(st, "secrets"):
+                for secret_name in ["GEMINI_API_KEY", "GOOGLE_API_KEY", "gemini_api_key", "google_api_key"]:
+                    if secret_name in st.secrets:
+                        val = st.secrets[secret_name]
+                        if val and str(val).strip():
+                            key = str(val).strip()
+                            break
+                if not key and "gemini" in st.secrets:
+                    gem_sec = st.secrets["gemini"]
+                    if isinstance(gem_sec, dict):
+                        key = gem_sec.get("api_key") or gem_sec.get("GEMINI_API_KEY")
         except Exception:
             pass
 

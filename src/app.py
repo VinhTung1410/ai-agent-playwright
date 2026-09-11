@@ -807,7 +807,7 @@ if df_jobs is not None and not df_jobs.empty:
                             "Mots-clés à ajouter": st.column_config.TextColumn("Compétences Manquantes", width="medium"),
                             "Lien": st.column_config.LinkColumn("Lien", width="small")
                         },
-                        use_container_width=True,
+                        width="stretch",
                         hide_index=True
                     )
 
